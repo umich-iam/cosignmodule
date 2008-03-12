@@ -1,0 +1,35 @@
+﻿
+<configSchema>
+  <sectionSchema name="system.webServer/cosign">
+    <element name="webloginServer" >
+      <attribute name="name" type="string" />
+      <attribute name="loginUrl" type="string" />
+      <attribute name="port" type="int" defaultValue="6663" />
+      <attribute name="postErrorRedirectUrl" type="string" />
+    </element>
+    <element name="crypto">
+      <attribute name="certificateCommonName" type="string" />
+    </element>
+    <element name="cookieDb">
+      <attribute name="directory" type="string" />
+      <attribute name="expireTime" type="timeSpan" timeSpanFormat="seconds" />
+    </element>
+    <element name="cookies">
+      <attribute name="secure" type="bool" />
+      <attribute name="httpOnly" type="bool" />
+    </element>
+    <element name="service">
+      <attribute name="name" type="string" />
+      <collection addElement="add">
+        <attribute name="factor" type="string" />
+      </collection>
+    </element>
+    <element name="protected">
+      <attribute name="status" type="enum">
+        <enum name="off" value="0" />
+        <enum name="on" value="1" />
+        <enum name="allowPublicAccess" value="2" />
+      </attribute>
+    </element>
+  </sectionSchema>
+</configSchema>
