@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCKAPI_
@@ -64,6 +68,19 @@ RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 }
 
 inline void
+GetElement( 
+	IAppHostElement*	ahe,
+	BSTR*				bstrName,
+	IAppHostElement**	ahe2	) {
+
+	HRESULT hr = ahe->GetElementByName( *bstrName, ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign %s element", *bstrName );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+}
+
+inline void
 GetPropertyValueByName(
 	IAppHostElement*	ahe,
 	VARIANT*			value, 
@@ -76,16 +93,17 @@ GetPropertyValueByName(
 	hr = ahe->GetPropertyByName( *name, &ahp );
 	if ( FAILED(hr) || ahp == NULL ) {
 		CosignLog( L"GetPropertyValueByName( %s ) failed.  Property not found.", *name );
-		throw( -1 );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
 	}
 	hr = ahp->get_Value( value );
 	if ( FAILED(hr) ) {
 		CosignLog( L"GetPropertyValueByName( %s ) failed.  Value not set.", *name );
-		throw( -2 );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
 	}
 	if ( value->vt != type ) {
 		CosignLog( L"GetPropertyValueByName( %s ) failed.  Property type %d differs from type expected %d.",
 			*name, value->vt, type );
+#ifdef COSIGNTRACE
 		switch ( value->vt ) {
 
 		case VT_EMPTY:
@@ -292,8 +310,7 @@ GetPropertyValueByName(
 			OutputDebugString( L"value is another type" );
 			break;
 		}
-		
-		///throw( -3 );
+#endif		
 	}
 }
 
@@ -305,10 +322,11 @@ GetPropertyValueByName(
  *   1 protected
  *   2 allowPublicAccess
  */
-int
+PROTECTEDSTATUS
 CosignModule::GetConfig( IHttpContext* context ) {
 	HRESULT	hr;
 	int		retCode			= 0;
+	PROTECTEDSTATUS	retStatus = cosignUnprotected;
 	PCTSTR	appConfigPath	= NULL;
 	VARIANT	value;
 	char*	strValue		= NULL;
@@ -335,121 +353,126 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	IAppHostConfigManager*	ahcm	= NULL;
 	IAppHostConfigFile*		ahcf	= NULL;
 
+	CosignTrace0( L"NEW GetConfig()uration logics!\n" );
 
-/****************************************************************************************************************/
-	OutputDebugString( L"NEW GetConfig()uration logics!\n" );
-	try {
-		imi = context->GetMetadata();
-		metaPath = imi->GetMetaPath();
-		
-		CosignLog( L"Metapath = %s\n", metaPath );
-		bstrConfigPath = SysAllocString( metaPath );
 	
-		hr = aham->GetAdminSection( bstrSection, bstrConfigPath, &ahe );
-		if ( FAILED(hr) || ahe == NULL ) {
-			OutputDebugString( L"GetAdminSection failed(3)." );
-			throw( -1 );
-		}
+	imi = context->GetMetadata();
+	metaPath = imi->GetMetaPath();
 		
-		/* Should never fail? */
-		hr = ahe->GetElementByName( bstrProtected, &ahe2 );
-		if ( FAILED(hr) || ahe2 == NULL ) {
-			throw( -1 );
-		}
-		GetPropertyValueByName( ahe2, &value, &bstrStatus, VT_I4 );
-		retCode = V_I4(&value);
-		if ( retCode == 0 ) {
-			// Unprotected.  No need to retrieve other values.
-			CosignLog( L"Unprotected, throwing" );
-			throw( retCode );
-		}
-
-		hr = ahe->GetElementByName( bstrWebloginServer, &ahe2 );
-		if ( FAILED(hr) ) {
-			CosignLog( L"Could not retrieve cosign <webloginServer> element" );
-			throw( -1 );
-		}
-		GetPropertyValueByName( ahe2, &value, &bstrLoginUrl, VT_BSTR );
-		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
-		loginUrl = strValue;
-		delete strValue;
-
-		GetPropertyValueByName( ahe2, &value, &bstrPostErrorRedirectUrl, VT_BSTR );
-		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
-		postErrorRedirectUrl = strValue;
-		delete strValue;
-
-		hr = ahe->GetElementByName( bstrService, &ahe2 );
-		if ( FAILED(hr) || ahe2 == NULL ) {
-			OutputDebugString( L"GetElementByName(\"service\") failed." );
-			throw( -1 );
-		}
-		GetPropertyValueByName( ahe2, &value, &bstrName, VT_BSTR );
-		strValue = _com_util::ConvertBSTRToString( value.bstrVal ); 
-		serviceName = strValue;
-		delete strValue;
-/*************************************************************************************************/
-		IAppHostElementCollection* ahec;
-		hr = ahe2->get_Collection( &ahec );
-		if ( FAILED(hr) ) {
-			CosignLog( L"Could not get service collection" );
-		} else {
-			DWORD numFactors;
-			hr = ahec->get_Count( &numFactors );
-			if ( FAILED(hr) ) {
-				CosignLog( L"Could not get_count for factors" );
-				throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
-			}
-			CosignLog( L"NumFactors = %u", numFactors );
-			IAppHostElement* collElem;
-			strFactors = "";
-			for ( unsigned int i = 0; i < numFactors; i++ ) {
-				VARIANT	index;
-				index.vt = VT_UINT;
-				index.uintVal = i;
-				hr = ahec->get_Item( index, &collElem );
-				if ( FAILED(hr) ) {
-					CosignLog( L"Could not get collection." );
-					throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
-				}
-				GetPropertyValueByName( collElem, &value, &bstrFactor, VT_BSTR );
-				CosignLog( L"Got %s = %s", bstrFactor, value.bstrVal );
-				strValue = _com_util::ConvertBSTRToString( value.bstrVal );
-				if ( strFactors == "" ) {
-					strFactors += strValue;
-				} else {
-					strFactors += ",";
-					strFactors += strValue;
-				}
-				//strFactors += (strFactors == "" ? "" : " " ) + strValue;
-				factors.push_back( strValue );
-				delete strValue;
-				//ahec->I
-			}
-			for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
-				CosignLogA( "Factor from vector = %s", iter->c_str() );
-			}
-			
-		}
-/*************************************************************************************************/
-		/// xxx does this take into account elements that are optional?
-		/// what will happen if we try to retrieve a value that hasn't been set?
-		hr = ahe->GetElementByName( bstrCookies, &ahe2 );
-		if ( FAILED(hr) ) {
-			CosignLog( L"Could not retrieve cosign <cookies> element" );
-			throw( CosignError( hr, __LINE__ -2, __FUNCTION__ ) );
-		}
-		GetPropertyValueByName( ahe2, &value, &bstrSecure, VT_BOOL );
-		cookiesSecure = V_BOOL(&value);
-
-		GetPropertyValueByName( ahe2, &value, &bstrHttpOnly, VT_BOOL );
-		cookiesHttpOnly = V_BOOL(&value);
-
-	} catch( CosignError ce ) {
-		ce.showError();
-	} catch ( int error ) {
-		retCode = error;
+	CosignTrace1( L"Metapath = %s\n", metaPath );
+	bstrConfigPath = SysAllocString( metaPath );
+	
+	hr = aham->GetAdminSection( bstrSection, bstrConfigPath, &ahe );
+	if ( FAILED(hr) || ahe == NULL ) {
+		CosignLog( L"GetAdminSection( %s, %s ) failed.", bstrSection, bstrConfigPath );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
 	}
+		
+	/* Should never fail? */
+	hr = ahe->GetElementByName( bstrProtected, &ahe2 );
+	if ( FAILED(hr) || ahe2 == NULL ) {
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrStatus, VT_I4 );
+
+	switch( V_I4(&value) ) {
+	case 0:
+		return( cosignUnprotected );
+	case 1:
+		retStatus = cosignProtected;
+		break;
+	case 2:
+		retStatus = cosignAllowPublicAccess;
+		break;
+	default:
+		throw( CosignError( E_FAIL, __LINE__ -2, __FILE__ ) );
+		break;
+	}
+
+	hr = ahe->GetElementByName( bstrWebloginServer, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <webloginServer> element" );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrLoginUrl, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+	loginUrl = strValue;
+	delete strValue;
+
+	GetPropertyValueByName( ahe2, &value, &bstrPostErrorRedirectUrl, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+	postErrorRedirectUrl = strValue;
+	delete strValue;
+
+	hr = ahe->GetElementByName( bstrService, &ahe2 );
+	if ( FAILED(hr) || ahe2 == NULL ) {
+		OutputDebugString( L"GetElementByName(\"service\") failed." );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrName, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal ); 
+	serviceName = strValue;
+	delete strValue;
+	const std::string cosignServicePrefix = "cosign-";
+	if ( serviceName.find( cosignServicePrefix ) != 0 ) {
+		serviceName.replace( 0, 0, cosignServicePrefix );
+	}
+
+	IAppHostElementCollection* ahec;
+	hr = ahe2->get_Collection( &ahec );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not get service collection" );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	} 
+	DWORD numFactors;
+	hr = ahec->get_Count( &numFactors );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not get_count for factors" );
+		throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
+	}
+	CosignTrace1( L"NumFactors = %u", numFactors );
+	IAppHostElement* collElem;
+	strFactors = "";
+	for ( unsigned int i = 0; i < numFactors; i++ ) {
+		VARIANT	index;
+		index.vt = VT_UINT;
+		index.uintVal = i;
+		hr = ahec->get_Item( index, &collElem );
+		if ( FAILED(hr) ) {
+			CosignLog( L"Could not get collection." );
+			throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
+		}
+		GetPropertyValueByName( collElem, &value, &bstrFactor, VT_BSTR );
+		CosignTrace2( L"Got %s = %s", bstrFactor, value.bstrVal );
+		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+		if ( strFactors == "" ) {
+			strFactors += strValue;
+		} else {
+			strFactors += ",";
+			strFactors += strValue;
+		}
+		factors.push_back( strValue );
+		delete strValue;
+	}
+#ifdef COSIGNTRACE
+	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
+		CosignLog( "Factor from vector = %s", iter->c_str() );
+	}
+#endif
+
+	/// xxx does this take into account elements that are optional?
+	/// what will happen if we try to retrieve a value that hasn't been set?
+	hr = ahe->GetElementByName( bstrCookies, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <cookies> element" );
+		throw( CosignError( hr, __LINE__ -2, __FUNCTION__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrSecure, VT_BOOL );
+	cookiesSecure = V_BOOL(&value);
+
+	GetPropertyValueByName( ahe2, &value, &bstrHttpOnly, VT_BOOL );
+	cookiesHttpOnly = V_BOOL(&value);
+
 	SysFreeString( bstrLoginUrl );
 	SysFreeString( bstrPostErrorRedirectUrl	);
 	SysFreeString( bstrSection );
@@ -463,7 +486,8 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	SysFreeString( bstrHttpOnly	);
 	SysFreeString( bstrAdd );
 	SysFreeString( bstrFactor );
-	return( retCode );
+
+	return( retStatus );
 }
 
 REQUEST_NOTIFICATION_STATUS
@@ -473,15 +497,8 @@ CosignModule::SetCookieAndRedirect(
 	char	newCookie[ 128 ];
 	int		newCookieLength = 128;
 	PCSTR	method = NULL;
-#ifdef __OLD_AND_BUSTED
-	char*	cookieHeader;
-	int		cookieHeaderSize;
-	char*	newLocation;
-	DWORD	newLocationSize;
-#else //new hotness
 	std::string	cookieHeader;
 	std::string	newLocation;
-#endif
 	PCSTR	url = NULL;
 	DWORD	urlSize;
 	
@@ -493,7 +510,7 @@ CosignModule::SetCookieAndRedirect(
 	char	protocol[ 6 ];
 
 	method = request->GetHttpMethod();
-	CosignLogA( "request->GetHttpMethod() = %s", method );
+	CosignTrace1( "request->GetHttpMethod() = %s", method );
 
 	urlSize = 0;
 	context->GetServerVariable( "URL", &url, &urlSize );
@@ -504,7 +521,7 @@ CosignModule::SetCookieAndRedirect(
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 	context->GetServerVariable( "URL", &url, &urlSize );
-	CosignLogA( "URL = %s", url );
+	CosignTrace1( "URL = %s", url );
 
 	DWORD spsSize = 0;
 	PCSTR serverPortSecure = NULL;
@@ -516,7 +533,7 @@ CosignModule::SetCookieAndRedirect(
 		/// xxx set an error
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
-	CosignLogA( "SERVER_PORT_SECURE = %s\n", serverPortSecure );
+	CosignTrace1( "SERVER_PORT_SECURE = %s\n", serverPortSecure );
 	if ( atoi(serverPortSecure) ) {
 		strcpy_s( protocol, sizeof protocol, "https" );
 	} else {
@@ -535,36 +552,14 @@ CosignModule::SetCookieAndRedirect(
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 	context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
-	CosignLogA( "SERVER_NAME = %s", serverName );
+	CosignTrace1( "SERVER_NAME = %s", serverName );
 
-	CosignLog( L"No cookie.  Making a new one." );
+	CosignTrace0( L"No cookie.  Making a new one." );
 	cg->MakeCookie( newCookie, newCookieLength );
-	CosignLogA( "New cookie = %s\nSetting header.\n", newCookie );
+	CosignTrace1( "New cookie = %s\nSetting header.\n", newCookie );
 	
-#ifdef __OLD_AND_BUSTED
-	// +2 for terminating '\0' and '='
-	cookieHeaderSize = newCookieLength + (int)serviceName.length() + 2;
-	cookieHeader = (char*)context->AllocateRequestMemory( cookieHeaderSize );
-	_snprintf_s( cookieHeader, cookieHeaderSize, cookieHeaderSize, "%s=%s", serviceName.c_str(), newCookie );
-	if ( response->SetHeader( "Set-Cookie", cookieHeader, (USHORT)strlen(cookieHeader), TRUE ) != S_OK ) {
-		CosignLog( L"Error setting cookie header" );
-	}
 
-	std::string destination = protocol;
-	destination += "://";
-	destination += serverName;
-	destination += url;
-
-	newLocationSize = cookieHeaderSize + (int)loginUrl.length() + (int)destination.length() + 3;
-	newLocation = (char*)context->AllocateRequestMemory( newLocationSize );
-	_snprintf_s( newLocation, newLocationSize, newLocationSize, "%s%s&%s", loginUrl.c_str(), cookieHeader, destination.c_str() );
-	CosignLogA( "Redirecting to: %s\n", newLocation );
-	response->Redirect( newLocation, TRUE, FALSE );
-	return( RQ_NOTIFICATION_FINISH_REQUEST );		
-#else
-	// new hotness
-
-	cookieHeader = serviceName + "=" + newCookie + 
+	cookieHeader = serviceName + "=" + newCookie + ";path=/" +
 		(cookiesSecure ? ";secure" : "" ) +
 		(cookiesHttpOnly ?" ;httponly" : "" ) +
 		";";
@@ -581,18 +576,13 @@ CosignModule::SetCookieAndRedirect(
 	
 	/// _snprintf_s( newLocation, newLocationSize, newLocationSize, "%s%s&%s", loginUrl.c_str(), cookieHeader, destination.c_str() );
 	if ( factors.size() > 0 ) {
-		CosignLog( L"redirect with factors" );
 		newLocation = loginUrl + "factors=" + strFactors + "&" + serviceName + "=" + newCookie + "&" + destination;
 	} else {
-		CosignLog( L"redirect without factors" );
 		newLocation = loginUrl + serviceName + "=" + newCookie + "&" + destination;
 	}
-	CosignLogA( "Redirecting to: %s\n", newLocation.c_str() );
+	CosignTrace1( "Redirecting to: %s\n", newLocation.c_str() );
 	response->Redirect( newLocation.c_str(), TRUE, FALSE );
 	return( RQ_NOTIFICATION_FINISH_REQUEST );		
-#endif
-
-	 
 }
 
 /*
@@ -605,37 +595,42 @@ CosignModule::SetCookieAndRedirect(
 inline
 int
 CosignModule::ParseServiceCookie(
-	std::string* ck,
-	std::string* serviceCk ) {
+	std::string& ck,
+	std::string& serviceCk ) {
 	
 	std::basic_string <char>::size_type	index;
 	std::basic_string <char>::size_type	indexCkEnd;
 	std::basic_string <char>::size_type	indexCkStart;
 	
-	index = ck->find( serviceName );
+	index = ck.find( serviceName );
 	
 	if ( index == std::string::npos ) {
-		CosignLogA( "Could not find %s cookie.\n", serviceName.c_str() );
+		CosignTrace1( "Could not find %s cookie.\n", serviceName.c_str() );
 		return( 1 );
 	}
-	CosignLogA( "Found %s cookie at position %u.\n", serviceName.c_str(), index );
+	CosignTrace2( "Found %s cookie at position %u.\n", serviceName.c_str(), index );
 
-	indexCkStart = ck->find( "=", index );
+	indexCkStart = ck.find( "=", index );
 	if ( indexCkStart == std::string::npos ) {
 		return( 1 );
 	}
 	indexCkStart++;
-	if ( indexCkStart > ck->length() ) {
+	if ( indexCkStart > ck.length() ) {
 		return( 1 );
 	}
-	indexCkStart = ck->find_first_not_of( " \t", indexCkStart );
-	indexCkEnd = ck->find( ";", indexCkStart );
+	indexCkStart = ck.find_first_not_of( " \t", indexCkStart );
+	indexCkEnd = ck.find( ";", indexCkStart );
 	if ( indexCkEnd == std::string::npos ) {
 		//Assume cookie goes to end of string
-		indexCkEnd = ck->length();
+		indexCkEnd = ck.length();
 	}
-	*serviceCk = ck->substr( indexCkStart, indexCkEnd - indexCkStart );
-
+	serviceCk = ck.substr( indexCkStart, indexCkEnd - indexCkStart );
+	const std::string validCookieChars = "_=@+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+	if ( serviceCk.find_first_not_of( validCookieChars ) != std::string::npos ) {
+		CosignLog( "Invalid characters found in cookie: %s", ck.c_str() );
+		/// xxx critical error, log this
+		return( -1 );
+	}
 	return( 0 );
 }
 
@@ -644,8 +639,7 @@ CosignModule::OnAuthenticateRequest(
 	IHttpContext*	context,
 	IN IAuthenticationProvider* pProvider ) {
 
-	DWORD threadId = GetCurrentThreadId();
-	CosignLog( L"OnAuthenticateRequest() Thread id = %ul\n", threadId );
+	CosignTrace1( L"OnAuthenticateRequest() Thread id = %ul\n", GetCurrentThreadId() );
 
 	IHttpResponse*	response = context->GetResponse();
 	IHttpRequest*	request = context->GetRequest();
@@ -653,63 +647,75 @@ CosignModule::OnAuthenticateRequest(
 	std::string	cookie;
 	std::string	serviceCookie;
 	USHORT	cookieSize;
+	PROTECTEDSTATUS	protectedStatus;
+	CosignServiceInfo	csi;
+	std::string	ck;
 
-	switch( GetConfig( context ) ) {
-	case 0: //unprotected
-		OutputDebugString( L"unprotected url" );
-		return( RQ_NOTIFICATION_CONTINUE );
-	case 1: //protected
-		OutputDebugString( L"protected url" );
-		break;
-	case 2: //allowPublicAccess
-		//carry on
-		OutputDebugString( L"allowPublicAccess url" );
-		break;
-	case -1:
-	default:
-		/// xxx set some sort of error
-		OutputDebugString( L"GetConfig failed." );
+	try {
+		protectedStatus = GetConfig( context );
+		switch( protectedStatus ) {
+		case cosignUnprotected: //unprotected
+			OutputDebugString( L"unprotected url" );
+			return( RQ_NOTIFICATION_CONTINUE );
+		case cosignProtected: //protected
+			OutputDebugString( L"protected url" );
+			break;
+		case cosignAllowPublicAccess: //allowPublicAccess
+			//carry on
+			OutputDebugString( L"allowPublicAccess url" );
+			break;
+		default:
+			/// xxx set some sort of error
+			OutputDebugString( L"GetConfig failed." );
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+	} catch ( CosignError ce ) {
+		ce.showError();
+		pProvider->SetErrorStatus( HRESULT_FROM_WIN32( ce.getError() ) );
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 
 	OutputDebugString( L"Done getting config, get/setting cookie" );
-	/// If we're getting and setting headers alot, may want a 'helper' function for this.
 	pcstrCookie = request->GetHeader( "Cookie", &cookieSize );
 	if ( cookieSize == 0 || pcstrCookie == NULL ) {
-		CosignLog( L"Cookie size is 0, setting new cookie\n" );
+		if ( protectedStatus == cosignAllowPublicAccess ) {
+			goto convertUserData;
+		}
 		return( SetCookieAndRedirect( context ) );
 	} else {
 		cookie = pcstrCookie;
 		if ( cookie.length() == 0 ) {
 			/// xxx Above check is extraneous
-			CosignLog( L"OnAuthenticateRequest Not enough memory!" );
+			CosignLog( L"OnAuthenticateRequest Not enough memory." );
 			/// xxx pProvider->SetErrorStatus( blah );
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 		}
-		CosignLogA( "Cookie: \"%s\"\n", cookie.c_str() );
+		CosignTrace1( "Cookie: \"%s\"\n", cookie.c_str() );
 
-		if ( ParseServiceCookie( &cookie, &serviceCookie ) != 0 ) {
+		if ( ParseServiceCookie( cookie, serviceCookie ) != 0 ) {
+			if ( protectedStatus == cosignAllowPublicAccess ) {
+				goto convertUserData;
+			}
 			return( SetCookieAndRedirect( context ) );	
 		}
-		CosignLogA( "Found service cookie: \"%s\"\n", serviceCookie.c_str() );
+		CosignTrace1( "Found service cookie: \"%s\"\n", serviceCookie.c_str() );
 	}
 	
 	/// Step one, check local cache and see if cached cookie is < 120 seconds
 	/// If cached cookie < 120 seconds old, populate server variables with cached data and return.
 
-	CosignServiceInfo	csi;
-	std::string	ck = serviceName + "=" + serviceCookie;
+	ck = serviceName + "=" + serviceCookie;
 	COSIGNSTATUS fileStatus = cdb->CheckCookie( serviceCookie, &csi );
 	if ( fileStatus == COSIGNLOGGEDIN ) {
-		CosignLog( L"Cookie DB logged in." );
+		CosignTrace0( L"Cookie DB logged in." );
 		goto convertUserData;
 	}
 	/// Step two, netcheck cookie
 
-	CosignLog( L"CHECKing cookie, waiting for mutex." );
+	CosignTrace0( L"CHECKing cookie, waiting for mutex." );
 	///std::string	ck = serviceName + "=" + serviceCookie;
 	DWORD wfso = WaitForSingleObject( cl->mutex, INFINITE );
-	CosignLog( L"Obtained the mutex." );
+	CosignTrace0( L"Obtained the mutex." );
 	if ( wfso != WAIT_OBJECT_0 ) {
 		if ( wfso == WAIT_FAILED ) {
 			///  pProvider->SetErrorStatus( GetLastError() );
@@ -718,16 +724,29 @@ CosignModule::OnAuthenticateRequest(
 			///  pProvider->SetErrorStatus( wfso );
 			CosignLog( L"Error waiting for connection list mutex: 0x%x", wfso );
 		}
-		
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 	COSIGNSTATUS status = cl->CheckCookie( &ck, &csi, TRUE );
+	CosignTrace0( L"Cookie, user is logged in." );
+
+		/*
+		 * fileStatus == COSIGNOK means that the service cookie is not locally cached.
+		 * If this is the case, then assume that proxy cookies and kerberos tickets
+		 * have not yet been retrieved and get them now.
+		 */
+	if ( fileStatus == COSIGNOK && cl->getProxyCookies() ) {
+		cl->RetrieveProxyCookies( ck );
+	}	
+	if ( fileStatus == COSIGNOK && cl->getKerberosTickets() ) {
+		cl->RetrieveKerberosTicket();
+	}
 	if ( !ReleaseMutex( cl->mutex ) ) {
 		CosignLog( L"Error releasing connection list mutex: 0x%x", GetLastError() );
 		///  pProvider->SetErrorStatus( GetLastError() );
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
-	CosignLog( L"Released the mutex." );
+	CosignTrace0( L"Released the mutex." );
+
 	switch ( status ) {
 		case COSIGNLOGGEDIN:
 			if ( fileStatus == COSIGNOK ) {
@@ -735,93 +754,88 @@ CosignModule::OnAuthenticateRequest(
 			} else if ( fileStatus == COSIGNLOGGEDOUT ) {
 				cdb->UpdateCookie( serviceCookie );
 			}
-			CosignLog( L"Cookie, user is logged in." );
 			break;
 		case COSIGNLOGGEDOUT:
-			CosignLog( L"CheckCookie returned logged out, setting new cookie" );
+			CosignTrace0( L"CheckCookie returned logged out, setting new cookie" );
 			return( SetCookieAndRedirect( context ) );
 		case COSIGNERROR:
 			CosignLog( L"CheckCookie returned an error" );
+			if ( protectedStatus == cosignAllowPublicAccess ) {
+				goto convertUserData;
+			}
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 		case COSIGNRETRY:
-			CosignLog( L"CheckCookie returned retry" );
+			CosignTrace0( L"CheckCookie returned retry" );
+			if ( protectedStatus == cosignAllowPublicAccess ) {
+				goto convertUserData;
+			}
 			return( SetCookieAndRedirect( context ) );
 		default:
 			CosignLog( L"CheckCookie returned unknown value" );
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 	// Check factors
-#ifdef __OLD_AND_BUSTED__
-	if ( factors.size() > 0 ) {
-		for( int i = 0; i < factors.size(); i++ ) {
-			if ( std::find( csi.factors.begin(), csi.factors.end(), factors[0] ) == factors.end() ) {
-				CosignLog( L"Not all factor satisfied!" );
-				return( SetCookieAndRedirect( context ) );
-			}
-		}
-	}
-#else // new hotness
 	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
-		CosignLogA( "Factors required (from factorsvector) = %s", iter->c_str() );
-	}
-	for ( std::vector<std::string>::iterator iter = csi.factors.begin(); iter != csi.factors.end(); iter++ ) {
-		CosignLogA( "Factor fulfilled (from csi.factorsvector) = %s", iter->c_str() );
-	}
-
-
-	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
-		CosignLogA( "Looking for fulfillment of factor %s", iter->c_str() );
 		if ( std::find( csi.factors.begin(), csi.factors.end(), *iter ) == csi.factors.end() ) {
-			CosignLog( L"Ohs noes!  factor not found!  redirecting!" );
+			// factor not found
+			if ( protectedStatus == cosignAllowPublicAccess ) {
+				goto convertUserData;
+			}
 			return( SetCookieAndRedirect( context ) );
-		} else {
-			CosignLog( L"Nice factor satisfied!" );
-		}
+		} 
 	}
-#endif
 
 convertUserData:
-	CosignLog( L"Converting user data to wide" );
+	CosignTrace0( L"Converting user data to wide" );
 	DWORD	bufferSize = (DWORD)((csi.strFactors.length() + csi.user.length() + csi.realm.length() + serviceName.length() + 1)*2);
 	PWCHAR	buffer = (PWCHAR)context->AllocateRequestMemory( bufferSize );
 	size_t	charsConverted;
 	errno_t	err;
 	HRESULT	hr;
 
-	err = mbstowcs_s( &charsConverted, buffer, bufferSize, csi.strFactors.c_str(), bufferSize - 1);
-	if ( err != 0 ) {
-		CosignLogA( "mcstowcs_s(%s) failed with %d", csi.strFactors.c_str(), err );
-	}
-	hr = context->SetServerVariable( "COSIGN_FACTOR", buffer );
-	if ( hr != S_OK ) {
-		CosignLog( L"Could not set server variable COSIGN_FACTOR" );
-	}
-
-	err = mbstowcs_s( &charsConverted, buffer, bufferSize, csi.user.c_str(), bufferSize - 1);
-	if ( err != 0 ) {
-		CosignLogA( "mcstowcs_s(%s) failed with %d", csi.user.c_str(), err );
-	}
-	hr = context->SetServerVariable( "REMOTE_USER", buffer );
-	if ( hr != S_OK ) {
-		CosignLog( L"Could not set server variable REMOTE_USER" );
+	
+	if ( !csi.strFactors.empty() ) {
+		err = mbstowcs_s( &charsConverted, buffer, bufferSize, csi.strFactors.c_str(), bufferSize - 1);
+		if ( err != 0 ) {
+			CosignLog( "mcstowcs_s(%s) failed with %d", csi.strFactors.c_str(), err );
+		}
+		hr = context->SetServerVariable( "COSIGN_FACTOR", buffer );
+		if ( hr != S_OK ) {
+			CosignLog( L"Could not set server variable COSIGN_FACTOR" );
+		}
 	}
 
-	err = mbstowcs_s( &charsConverted, buffer, bufferSize, csi.realm.c_str(), bufferSize - 1);
-	if ( err != 0 ) {
-		CosignLog( L"mcstowcs_s(%s) failed with %d", csi.realm.c_str(), err );
-	}
-	hr = context->SetServerVariable( "REMOTE_REALM", buffer );
-	if ( hr != S_OK ) {
-		CosignLog( L"Could not set server variable REMOTE_REALM" );
+	if ( !csi.user.empty() ) {
+		err = mbstowcs_s( &charsConverted, buffer, bufferSize, csi.user.c_str(), bufferSize - 1);
+		if ( err != 0 ) {
+			CosignLog( "mcstowcs_s(%s) failed with %d", csi.user.c_str(), err );
+		}
+		hr = context->SetServerVariable( "REMOTE_USER", buffer );
+		if ( hr != S_OK ) {
+			CosignLog( L"Could not set server variable REMOTE_USER" );
+		}
 	}
 
-	err = mbstowcs_s( &charsConverted, buffer, bufferSize, serviceName.c_str(), bufferSize - 1);
-	if ( err != 0 ) {
-		CosignLogA( "mcstowcs_s(%s) failed with %d", serviceName.c_str(), err );
+	if ( !csi.realm.empty() ) {
+		err = mbstowcs_s( &charsConverted, buffer, bufferSize, csi.realm.c_str(), bufferSize - 1);
+		if ( err != 0 ) {
+			CosignLog( L"mcstowcs_s(%s) failed with %d", csi.realm.c_str(), err );
+		}
+		hr = context->SetServerVariable( "REMOTE_REALM", buffer );
+		if ( hr != S_OK ) {
+			CosignLog( L"Could not set server variable REMOTE_REALM" );
+		}
 	}
-	hr = context->SetServerVariable( "COSIGN_SERVICE", buffer );
-	if ( hr != S_OK ) {
-		CosignLog( L"Could not set server variable COSIGN_SERVICE" );
+	
+	if ( !serviceName.empty() ) {
+		err = mbstowcs_s( &charsConverted, buffer, bufferSize, serviceName.c_str(), bufferSize - 1);
+		if ( err != 0 ) {
+			CosignLog( "mcstowcs_s(%s) failed with %d", serviceName.c_str(), err );
+		}
+		hr = context->SetServerVariable( "COSIGN_SERVICE", buffer );
+		if ( hr != S_OK ) {
+			CosignLog( L"Could not set server variable COSIGN_SERVICE" );
+		}
 	}
 
 	return( RQ_NOTIFICATION_CONTINUE );
@@ -884,8 +898,7 @@ CosignModuleFactory::GetHttpModule(
 	OUT CHttpModule**	ppModule,
 	IN	IModuleAllocator*	pAllocator ) {
 
-	DWORD threadId = GetCurrentThreadId();
-	CosignLog( L"GetHttpModule Thread id = %ul\n", threadId );
+	CosignTrace1( L"GetHttpModule Thread id = %ul\n", GetCurrentThreadId() );
 
 	UNREFERENCED_PARAMETER( pAllocator );	
 	CosignModule*	mod	= new CosignModule( &aham, &cl, &cdb );
@@ -907,14 +920,13 @@ CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham ) {
 	OutputDebugString( L"CosignModuleFactory constructed." );
 }
 
-int
+DWORD
 CosignModuleFactory::Init() {
 
 	HRESULT		hr;
 	int			retCode = 0;
 	BSTR		bstrSection			= SysAllocString(L"system.webServer/cosign");
 	BSTR		bstrConfigPath		= SysAllocString(L"MACHINE/WEBROOT/APPHOST");
-	//BSTR		bstrConfigPath		= SysAllocString(L"MACHINE/WEBROOT");
 	BSTR		bstrWebloginServer	= SysAllocString(L"webloginServer");
 	BSTR		bstrName			= SysAllocString(L"name");
 	BSTR		bstrPort			= SysAllocString(L"port");
@@ -923,73 +935,68 @@ CosignModuleFactory::Init() {
 	BSTR		bstrCookieDb		= SysAllocString(L"cookieDb");
 	BSTR		bstrDirectory		= SysAllocString(L"directory");
 	BSTR		bstrExpireTime		= SysAllocString(L"expireTime");
+	BSTR		bstrKerberosTickets	= SysAllocString(L"kerberosTickets");
+	BSTR		bstrProxyCookies	= SysAllocString(L"proxyCookies");
 	IAppHostElement*	ahe		= NULL;
 	IAppHostElement*	ahe2	= NULL;
 	IAppHostProperty*	ahp		= NULL;
 	VARIANT				value;
 
-	/* xxx Might it make more sense to keep some of these values as BSTRs? */
-
 	try {
 		hr = aham->GetAdminSection( bstrSection, bstrConfigPath, &ahe );
 		if ( FAILED(hr) ) {
 			CosignLog( L"Could not get cosign admin section. %s, %s", bstrSection, bstrConfigPath );
-			throw( -1 );
+			throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
 		}
-		hr = ahe->GetElementByName( bstrWebloginServer, &ahe2 );
-		if ( FAILED(hr) ) {
-			CosignLog( L"Could not retrieve cosign <webloginServer> element" );
-			throw( -1 );
-		}
-
+		GetElement( ahe, &bstrWebloginServer, &ahe2 );
 		GetPropertyValueByName( ahe2, &value, &bstrName, VT_BSTR );
 		config.webloginServer = value.bstrVal;
-
 		GetPropertyValueByName( ahe2, &value, &bstrPort, VT_I4 );
 		config.port = value.intVal;
 
-		hr = ahe->GetElementByName( bstrCrypto, &ahe2 );
-		if ( FAILED(hr) ) {
-			OutputDebugString( L"Could not retrieve cosign <crypto> element" );
-			throw( -1 );
-		}
+		GetElement( ahe, &bstrCrypto, &ahe2 );
 		GetPropertyValueByName( ahe2, &value, &bstrCertificateCommonName, VT_BSTR );
 		config.certificateCommonName = value.bstrVal;
 
-		hr = ahe->GetElementByName( bstrCookieDb, &ahe2 );
-		if ( FAILED(hr) ) {
-			OutputDebugString( L"Could not retrieve cosign <cookieDb> element" );
-			throw( -1 );
-		}
+		GetElement( ahe, &bstrCookieDb, &ahe2 );
 		GetPropertyValueByName( ahe2, &value, &bstrDirectory, VT_BSTR );
-		/// xxx expand any environment variables here
 		config.cookieDbDirectory = value.bstrVal;
-
 		GetPropertyValueByName( ahe2, &value, &bstrExpireTime, VT_UI8 );
 		config.cookieDbExpireTime = (ULONGLONG)value.uintVal;
 
-	} catch( int n ) {
-		OutputDebugString( L"Error parsing cosign config values." );
-		return( n );
-	}
-	config.dump();
-	SysFreeString( bstrName );
-	SysFreeString( bstrPort );
-	SysFreeString( bstrCrypto );
-	SysFreeString( bstrSection );
-	SysFreeString( bstrCookieDb );
-	SysFreeString( bstrDirectory );
-	SysFreeString( bstrExpireTime );
-	SysFreeString( bstrConfigPath );
-	SysFreeString( bstrWebloginServer );
-	SysFreeString( bstrCertificateCommonName );
+		GetElement( ahe, &bstrKerberosTickets, &ahe2 );
+		GetPropertyValueByName( ahe2, &value, &bstrDirectory, VT_BSTR );
+		config.kerberosTicketsDirectory = L"\\\\?\\";
+		config.kerberosTicketsDirectory += value.bstrVal;
 
-	OutputDebugString( L"Retrieving cert from store." );
-	PCCERT_CONTEXT	certificateContext = NULL;
-	WSADATA			wsadata;
-	int				err;
+		GetElement( ahe, &bstrProxyCookies, &ahe2 );
+		GetPropertyValueByName( ahe2, &value, &bstrDirectory, VT_BSTR );
+		config.proxyCookiesDirectory = L"\\\\?\\";
+		config.proxyCookiesDirectory += value.bstrVal;
 
-	try {
+		if ( config.certificateCommonName.empty() ||
+			config.cookieDbDirectory.empty() ||
+			config.webloginServer.empty() ) {
+			throw( CosignError( ERROR_INVALID_DATA, __LINE__ -1, __FILE__ ) );
+		}
+#ifdef COSIGNTRACE
+		config.dump();
+#endif
+		SysFreeString( bstrName );
+		SysFreeString( bstrPort );
+		SysFreeString( bstrCrypto );
+		SysFreeString( bstrSection );
+		SysFreeString( bstrCookieDb );
+		SysFreeString( bstrDirectory );
+		SysFreeString( bstrExpireTime );
+		SysFreeString( bstrConfigPath );
+		SysFreeString( bstrWebloginServer );
+		SysFreeString( bstrCertificateCommonName );
+
+		PCCERT_CONTEXT	certificateContext = NULL;
+		WSADATA			wsadata;
+		int				err;
+
 		certificateContext = RetrieveCertFromStore( config.certificateCommonName, certificateStore );
 		if ( certificateContext == NULL ) {
 			CosignLog( L"Could not RetrieveCertFromStore(), certificateContext is NULL" );
@@ -998,22 +1005,32 @@ CosignModuleFactory::Init() {
 		if ( (err = WSAStartup( MAKEWORD(2, 2), &wsadata )) != 0 ) {
 			throw( CosignError( (DWORD)err, __LINE__ - 1, __FUNCTION__ ) );
 		}
-		cl.Init( config.webloginServer, config.port, certificateContext );
+		cl.Init(
+			config.webloginServer,
+			config.port,
+			certificateContext,
+			config.kerberosTicketsDirectory,
+			config.proxyCookiesDirectory );
 		cl.Populate();
 		/// xxx HashLength will be a configuration item
-		cdb.Init( config.cookieDbDirectory, config.cookieDbExpireTime, 0 );
+		cdb.Init(
+			config.cookieDbDirectory,
+			config.cookieDbExpireTime, 0,
+			config.kerberosTicketsDirectory,
+			config.proxyCookiesDirectory );
 	} catch ( CosignError ce ) {
 		ce.showError();
-		retCode = -1;
+		return( ce.getError() );
 	}
 
-	return( retCode );
+	return( 0 );
 }
 
 void
 CosignModuleFactory::Terminate() {
 
-	/// xxx WSACleanup() and socket termination code.
+	cl.Depopulate();
+	WSACleanup();
 	OutputDebugString( L"CosignModuleFactory terminated." );
 	delete this;
 }

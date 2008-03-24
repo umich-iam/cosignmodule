@@ -1,6 +1,9 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 /*
-
 #include <string>
 */
 
@@ -15,10 +18,7 @@ public:
 	bool	run_inDefaultMode;
 	char*	server;
 	char*	cookieDBPath;
-	/// may be replaced with better logging facility
 	char*	logFilePath;
-	/// I'm thinking there may be a better way to organize sockets
-	/// IoCompletionPorts, maybe?
 	int		connPoolSize;
 	DWORD	cookieDBExpireTime;
 	tristate	checkIpAddr;
@@ -43,4 +43,7 @@ public:
 	std::wstring certificateCommonName;
 	std::wstring cookieDbDirectory;
 	ULONGLONG	 cookieDbExpireTime;
+	std::wstring kerberosTicketsDirectory;
+	std::wstring proxyCookiesDirectory;
+
 };

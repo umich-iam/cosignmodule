@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 #define SECURITY_WIN32
 
@@ -11,7 +15,9 @@
 #include "Snetpp.h"
 #include "CosignServiceInfo.h"
 #include "ConnectionList.h"
+#include "StringToWString.h"
 #include "Log.h"
+
 
 inline PCCERT_CONTEXT
 GetCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
@@ -39,35 +45,42 @@ GetCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 		}
 		if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
 			// Success happens here
-			CosignLog( L"Found matching certificate!\n" );
+			CosignTrace0( L"Found matching certificate!\n" );
 			return( ctx );
 		}
 		prevCtx = ctx;
 	}
-	CosignLog( L"Could not find matching certificate.\n" );
+	CosignLog( L"Could not find matching certificate for CN %s.\n", cn.c_str() );
 	return( NULL );
 }
 
+bool
+ConnectionList:: getProxyCookies() {
+		CosignLog( L"proxyCookiesDirectory is set to", proxyCookiesDirectory.c_str() );
+		CosignLog( L"proxyCookiesDirector.empty() = %s", (proxyCookiesDirectory.empty() ? L"true" : L"false" ) );
+		return( !proxyCookiesDirectory.empty() );
+	}
 ConnectionList::ConnectionList() {
 	numServers = 0;
 	certificateContext = NULL;
+	curConnection = NULL;
 	port = -1;
 	mutex = INVALID_HANDLE_VALUE;
 }
 
 ConnectionList::~ConnectionList() {
 	/// xxx maybe shouldn't wait forever?
-	CosignLog( L"Waiting for mutex before destructing." );
+	CosignTrace0( L"Waiting for mutex before destructing." );
 	WaitForSingleObject( mutex, INFINITE );
-	CosignLog( L"Obtained mutex.  Deconstruction continues." );
+	CosignTrace0( L"Obtained mutex.  Deconstruction continues." );
 	CloseHandle( mutex );
 	Depopulate();
 	CertFreeCertificateContext( certificateContext );
-	
 }
 
 void
-ConnectionList::Init( std::wstring s, int p, PCCERT_CONTEXT	ctx ) {
+ConnectionList::Init( std::wstring& s, int p, PCCERT_CONTEXT ctx, std::wstring& kerbDir, std::wstring& proxyDir ) {
+
 
 	server = s;
 	port = p;
@@ -75,6 +88,20 @@ ConnectionList::Init( std::wstring s, int p, PCCERT_CONTEXT	ctx ) {
 	mutex = CreateMutex( NULL, FALSE, NULL );
 	if ( mutex == NULL ) {
 		throw( CosignError( (DWORD)GetLastError(), __LINE__ - 2, __FUNCTION__ ) );
+	}
+
+	if ( kerbDir[ kerbDir.length() - 1 ] != '\\' &&
+		kerbDir[ kerbDir.length() - 1 ] != '/' ) {
+		kerberosTicketsDirectory = kerbDir + L"\\";
+	} else {
+		kerberosTicketsDirectory = kerbDir;
+	}
+	
+	if ( proxyDir[ proxyDir.length() - 1 ] != '\\' &&
+		proxyDir[ proxyDir.length() - 1 ] != '/' ) {
+			proxyCookiesDirectory = proxyDir + L"\\";
+	} else {
+		proxyCookiesDirectory = proxyDir;
 	}
 }
 
@@ -116,7 +143,7 @@ ConnectionList::Populate() {
 	Snet*		snet;
 
 	for ( aiCur = aiList, numServers = 0; aiCur != NULL; aiCur = aiCur->ai_next, numServers++, s = INVALID_SOCKET ) {
-		CosignLogA( "aiCur->ai_addr: %s\n", inet_ntoa( ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr ) );
+		CosignTrace1( "aiCur->ai_addr: %s\n", inet_ntoa( ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr ) );
 		if ( (s = socket( AF_INET, SOCK_STREAM, NULL )) == INVALID_SOCKET ) {
 			throw( CosignError( (DWORD)WSAGetLastError(), __LINE__ - 1, __FUNCTION__ ) );
 		}
@@ -127,7 +154,7 @@ ConnectionList::Populate() {
 		snet = new Snet();
 		snet->attach( s );
 		snet->getLine();
-		CosignLogA( "<< %s", snet->data.c_str() );
+		CosignTrace1( "<< %s", snet->data.c_str() );
 		Add( snet );
 	}
 	this->server = server;
@@ -148,28 +175,23 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 	int		goodConnections = 0;
 	COSIGNSTATUS	status = COSIGNRETRY;
 
-	CosignLog( L"connections.size() = %d", connections.size() );
+	CosignTrace1( L"connections.size() = %d", connections.size() );
 	for( int i = 0; i < connections.size() && status == COSIGNRETRY; i++ ) {
-		snet = connections[ i ];
-		CosignLog( L"CheckCookie iter %d", i );
-		if ( snet->tlsStarted() ) {
-			CosignLog( L"Apparently, tls already started up" );
-		} else {
-			CosignLog( L"Starting TLS" );
+		curConnection = snet = connections[ i ];
+		CosignTrace1( L"CheckCookie iter %d", i );
+		if ( !snet->tlsStarted() ) {
 			out = "STARTTLS 2\r\n";
-			CosignLogA( ">> %s", out.c_str() );
+			CosignTrace1( ">> %s", out.c_str() );
 			if ( snet->write( out ) == -1 ) {
 				/// xxx on errors, delete connection?  Mark it as bad?
 				CosignLog( L"Error writing data to socket %d\n", i );
 				continue;
-				//throw( SslTestError( (DWORD)WSAGetLastError(), __LINE__ - 1, __FUNCTION__ ) );
 			}
 			if ( snet->getLine() == -1 ) {
 				CosignLog( L"Error reading data from socket %d\n", i );
 				continue;
-				//throw( SslTestError( (DWORD)WSAGetLastError(), __LINE__ - 1, __FUNCTION__ ) );
 			}
-			CosignLogA( "<< %s", snet->data.c_str() );
+			CosignTrace1( "<< %s", snet->data.c_str() );
 			
 			if ( snet->startTls( certificateContext, (WCHAR*)server.c_str() ) != 0 ) {
 				CosignLog( L"Error starting TLS on socket %d\n", i );
@@ -180,11 +202,11 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 				CosignLog( L"Error reading data(3) from socket %d\n", i );
 				continue;
 			}
-			CosignLogA( "<< %s\n", snet->data.c_str() );
+			CosignTrace1( "<< %s\n", snet->data.c_str() );
 		}
 
 		out = "CHECK " + *cookie + "\r\n";
-		CosignLogA( ">> %s", out.c_str() );
+		CosignTrace1( ">> %s", out.c_str() );
 		if ( snet->write( out ) == -1 ) {
 			CosignLog( L"Error writing data(2) to socket %d\n", i );
 			continue;
@@ -193,26 +215,26 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 			CosignLog( L"Error reading data(4) from socket %d\n", i );
 			continue;
 		}
-		CosignLogA( "<< %s", snet->data.c_str() );
+		CosignTrace1( "<< %s", snet->data.c_str() );
 		in = snet->data;
 		switch( in[ 0 ] ) {
 		case '2':
 			// Success!
-			CosignLogA( "Server returned 2xx: %s", in.c_str() );
+			CosignTrace1( "Server returned 2xx: %s", in.c_str() );
 			status = COSIGNLOGGEDIN;
 			break;
 		case '4':
 			// Logged out
-			CosignLogA( "User is logged out: %s", in.c_str() );
+			CosignTrace1( "User is logged out: %s", in.c_str() );
 			status = COSIGNLOGGEDOUT;
 			break;
 		case '5' :
 			// Choose another connection
-			CosignLogA( "Trying a different server: %s", in.c_str() );
+			CosignTrace1( "Trying a different server: %s", in.c_str() );
 			status = COSIGNRETRY;
 			break;
 		default :
-			CosignLogA( "Server returned unexpected response: %s", in.c_str() );
+			CosignLog( "Server returned unexpected response: %s", in.c_str() );
 			status = COSIGNERROR;
 			break;
 		}
@@ -220,14 +242,14 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 	}
 	if ( goodConnections == 0 && tryAgain ) {
 		/// repopulate and try again
-		CosignLog( L"Repopulating and trying again..." );
+		CosignTrace0( L"Repopulating and trying again..." );
 		Depopulate();
 		Populate();
 		CheckCookie( cookie, csi, FALSE );
 	}
 
 	if ( status == COSIGNLOGGEDIN ) {
-		CosignLog( L"Putting values into csi" );
+		CosignTrace0( L"Putting values into csi" );
 		std::vector<std::string>	authData;
 		std::stringstream	cookieParser( in );
 		copy( std::istream_iterator<std::string>(cookieParser), std::istream_iterator<std::string>(), std::back_inserter(authData) );
@@ -246,4 +268,149 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		csi->krb5TicketPath.clear();
 	}
 	return( status );
+}
+
+void
+ConnectionList::RetrieveProxyCookies( std::string& cookie ) {
+
+	if ( curConnection == NULL ) {
+		CosignLog( L"Current connection is not set.  Could not retrieve proxy cookies." );
+		return;
+	}
+
+	HANDLE	hpf = INVALID_HANDLE_VALUE;
+	DWORD	bytesWritten = 0;
+	DWORD	err;
+
+	try { 
+
+
+	// Create file to hold proxy cookie data
+	WCHAR	tempFileName[ 32768 ];
+	CosignTrace1( L"proxy Cookies Diretory path = %s", proxyCookiesDirectory.c_str() );
+	if ( GetTempFileName( proxyCookiesDirectory.c_str(), L"pck", 0, tempFileName ) == 0 ) {
+		err = GetLastError();
+		CosignLog( L"GetTempFileName failed with 0x%x", err );
+		throw( CosignError( err, __LINE__ - 2, __FUNCTION__ ) );
+	}
+
+	CosignTrace1( L"tempFileName = %s", tempFileName );
+	hpf = CreateFile( tempFileName,
+		GENERIC_WRITE,
+		FILE_SHARE_READ,
+		NULL,
+		CREATE_ALWAYS,
+		FILE_ATTRIBUTE_TEMPORARY,
+		NULL );
+	if ( hpf == INVALID_HANDLE_VALUE ) {
+		err = GetLastError();
+		CosignLog( L"CreateFile failed with 0x%x", err );
+		throw( CosignError( err, __LINE__ - 2, __FUNCTION__ ) );
+	}
+
+	// Retrieve proxy cookies and store
+	Snet*	snet = curConnection;
+	std::string out = "RETR " + cookie + " cookies\r\n";
+	CosignTrace1( ">> %s", out.c_str() );
+	if ( snet->write( out ) == -1 ) {
+		CosignLog( "Error writing data to socket \"%s\"\n", out.c_str() );
+		return;
+	}
+	std::string	in;
+	std::basic_string <char>::size_type	index;
+	std::basic_string <char>::size_type	last;
+	std::string crlf = "\r\n";
+	std::string line;
+	std::string status;
+
+	while(1) {
+
+		if ( snet->getLine() == -1 ) {
+			CosignLog( L"Error reading data from socket" );
+			return;
+		}
+		in = snet->data;
+
+		for ( index = 0; index < in.length(); index += 2 ) {
+			last = index;
+			index = in.find( crlf, index );
+			line = in.substr( last, index - last );
+			CosignTrace1( "Parsed line << %s", line.c_str() );
+			if ( line.length() < 4 ) {
+				CosignTrace1( "Error RETR cookies.  Expected more data: %s", in.c_str() );
+				/// xxx break out of larger loop and close file handle!
+				return;
+			}
+			status = line.substr( 0, 4 );
+			if ( status[ 0 ] != '2' ||
+				!isdigit( status[ 1 ] ) ||
+				!isdigit( status[ 2 ] ) ) {
+				CosignTrace1( "Error RETR cookies.  Server replied: %s", in.c_str() );
+				/// xxx break out of larger loop and close file handle!
+				return;
+			}
+			if ( status[ 3 ] == '-' ) {
+				// Write cookie to file
+				bytesWritten = 0;
+				line.replace( 0, 4, "" );
+				line += "\r\n";
+				const char*	szLine = line.c_str();
+				CosignTrace1( "Writing to file: %s", line.c_str() );
+				if ( !WriteFile( hpf,
+					line.c_str(),
+					(DWORD)line.length(),
+					&bytesWritten,
+					NULL ) ) {
+
+					err = GetLastError();
+					CosignLog( L"WriteFile(%s) failed with 0x%x", out.c_str(), err );
+					throw( CosignError( err, __LINE__ - 2, __FUNCTION__ ) );
+				}
+			}
+		}
+		if ( status.length() >= 4 && status[ 3 ] != '-' ) {
+			CosignTrace0( L"Breaking out of RETR loop" );
+			break;
+		}
+	}
+	if ( hpf != INVALID_HANDLE_VALUE ) {
+		if ( !CloseHandle( hpf ) ) {
+			CosignLog( L"CloseHandle( proxyTmpFile ) failed with 0x%x", GetLastError() );
+		}
+	}
+	
+	std::wstring	wcookie;
+	StringToWString( cookie, wcookie );
+	index = wcookie.find( L'=' );
+	index++;
+	if ( index != std::wstring::npos ) {
+		wcookie.replace( 0, index, L"" );
+	}
+	std::wstring	proxyCookiePath = this->proxyCookiesDirectory + wcookie;
+
+	CosignTrace2( L"Copying %s to %s", tempFileName, proxyCookiePath.c_str() );
+	if ( !CopyFileEx( tempFileName, proxyCookiePath.c_str(), NULL, NULL, FALSE, 0 ) ) {
+		err = GetLastError();
+		CosignLog( L"Could not copy file %s to %s: 0x%x", tempFileName, proxyCookiePath.c_str(), err );
+		throw( CosignError( err, __LINE__ - 2, __FUNCTION__ ) );
+	}
+	if ( !DeleteFile( tempFileName ) ) {
+		err = GetLastError();
+		CosignLog( L"Could not delete temp file %s: 0x%x", tempFileName, err );
+		throw( CosignError( err, __LINE__ - 2, __FUNCTION__ ) );
+	}
+
+	} catch ( CosignError ce ) {
+		if ( hpf != INVALID_HANDLE_VALUE ) {
+			if ( !CloseHandle( hpf ) ) {
+				CosignLog( L"CloseHandle( proxyTmpFile ) failed with 0x%x", GetLastError() );
+			}
+		}
+		ce.showError();
+	}
+}
+
+void ConnectionList::RetrieveKerberosTicket() {
+
+	CosignLog( L"Kerberos ticket retrievel not yet implemented." );
 }

@@ -11,12 +11,18 @@
       <attribute name="certificateCommonName" type="string" />
     </element>
     <element name="cookieDb">
-      <attribute name="directory" type="string" />
+      <attribute name="directory" type="string" expanded="true" />
       <attribute name="expireTime" type="timeSpan" timeSpanFormat="seconds" />
     </element>
     <element name="cookies">
       <attribute name="secure" type="bool" />
       <attribute name="httpOnly" type="bool" />
+    </element>
+    <element name="kerberosTickets">
+      <attribute name="directory" type="string" expanded="true" />
+    </element>
+    <element name="proxyCookies">
+      <attribute name="directory" type="string" expanded="true" />
     </element>
     <element name="service">
       <attribute name="name" type="string" />

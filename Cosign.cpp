@@ -1,4 +1,7 @@
-
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCKAPI_
@@ -26,6 +29,7 @@
 #include "ConnectionList.h"
 #include "CookieDatabase.h"
 #include "CosignModule.h"
+#include "CosignConfigChangeModule.h"
 
 HRESULT
 __stdcall
@@ -34,26 +38,48 @@ RegisterModule(
 	IHttpModuleRegistrationInfo* info,
 	IHttpServer*	server ) {
 
-	DWORD threadId = GetCurrentThreadId();
-	CosignLog( L"RegisterModule thread id = %ul\n", threadId );
-
 	UNREFERENCED_PARAMETER( serverVersion );
 	CosignModuleFactory*	cmf;
+	HRESULT	hr;
+	
 
-	OutputDebugString( L"Module registerification.\n" );
 	IAppHostAdminManager *aham = server->GetAdminManager();
 	cmf = new CosignModuleFactory( &aham );
-	OutputDebugString( L"Init()'ing cosign module factory" );
-	if ( cmf->Init() != 0 ) {
-		return( E_FAIL );
+	if ( !cmf ) {
+		return( HRESULT_FROM_WIN32( ERROR_NOT_ENOUGH_MEMORY ) );
 	}
-	OutputDebugString( L"Done Init()'ing cosign module factory." );
 
-	return( info->SetRequestNotifications(
+	DWORD err  = cmf->Init();
+	if ( err != 0 ) {
+		return( HRESULT_FROM_WIN32( err ) );
+	}
+
+	hr = info->SetRequestNotifications(
 		cmf,
 		RQ_AUTHENTICATE_REQUEST,
-		0
-	) );
+		0 );
+	if ( FAILED(hr) ) {
+		return( hr );
+	}
+
+
+	CosignConfigChangeModule*	cccm = new CosignConfigChangeModule;
+
+	if ( !cccm ) {
+		return( HRESULT_FROM_WIN32( ERROR_NOT_ENOUGH_MEMORY ) );
+	}
+
+	hr = info->SetGlobalNotifications( cccm, GL_CONFIGURATION_CHANGE );
+	if ( FAILED(hr) ) {
+		return( hr );
+	}
+
+	hr = info->SetPriorityForGlobalNotification( GL_CONFIGURATION_CHANGE, PRIORITY_ALIAS_LOW );
+	if ( FAILED(hr) ) {
+		return( hr );
+	}
+
+	return( hr );
 
 /* xxx not sure if necessary to be notified of configuration changes or if configuration data can be read
 	by each CosignModule instance with minimal performance penalty

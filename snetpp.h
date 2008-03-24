@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
+
+/*
 #include <windows.h>
 #include <winsock.h>
 #include <ws2tcpip.h>
@@ -24,7 +29,7 @@ private:
 	BYTE*		writeBuffer;
 	DWORD		writeBufferLength;
 	BYTE*		readBuffer;
-	DWORD		readBufferLength;
+	DWORD		readBufferSize;
 
 	int	setStreamBufferSize();
 	int secureRead();

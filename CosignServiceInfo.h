@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 enum COSIGNSTATUS { COSIGNERROR, COSIGNOK, COSIGNLOGGEDIN, COSIGNLOGGEDOUT, COSIGNRETRY, COSIGNBADSUFFIX };
 

@@ -521,6 +521,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\CosignConfigChangeModule.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\CosignModule.cpp"
 				>
 			</File>
@@ -538,6 +542,10 @@
 			</File>
 			<File
 				RelativePath=".\snetpp.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\StrintToWString.cpp"
 				>
 			</File>
 		</Filter>
@@ -559,6 +567,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\CosignConfigChangeModule.h"
+				>
+			</File>
+			<File
 				RelativePath=".\CosignModule.h"
 				>
 			</File>
@@ -576,6 +588,10 @@
 			</File>
 			<File
 				RelativePath=".\snetpp.h"
+				>
+			</File>
+			<File
+				RelativePath=".\StringToWString.h"
 				>
 			</File>
 		</Filter>

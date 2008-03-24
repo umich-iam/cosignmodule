@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 #include <windows.h>
 #include <stdio.h>
@@ -25,7 +29,7 @@ CosignLog( wchar_t* format, ... ) {
 }
 
 void
-CosignLogA( char* format, ... ) {
+CosignLog( char* format, ... ) {
 	va_list	args;
 	char	msg[ MSGCHARCOUNT ];
 	size_t	msgSize = (sizeof(msg)) / (sizeof(wchar_t));

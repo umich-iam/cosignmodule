@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 /*
 #define WIN32_LEAN_AND_MEAN
@@ -13,6 +17,9 @@
 #include "Settings.h"
 #include "snetpp.h"
 */
+
+enum PROTECTEDSTATUS {  cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
+
 
 class CosignModule : public CHttpModule {
 
@@ -46,9 +53,9 @@ private :
 	
 	BOOL Log( LPCWSTR str );
 	BOOL Log( PCSTR str );
-	int GetConfig( IHttpContext*	context );
+	PROTECTEDSTATUS GetConfig( IHttpContext*	context );
 	REQUEST_NOTIFICATION_STATUS SetCookieAndRedirect( IHttpContext* context );
-	int ParseServiceCookie( std::string* cookie, std::string* serviceCookie );
+	int ParseServiceCookie( std::string& cookie, std::string& serviceCookie );
 };
 
 class CosignModuleFactory : public IHttpModuleFactory {
@@ -61,7 +68,7 @@ public:
 		IN IModuleAllocator* pAllocator );
 		
 	void Terminate();
-	int	 Init();
+	DWORD Init();
 private:
 	IAppHostAdminManager* aham;
 	CosignSettings	config;

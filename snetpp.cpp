@@ -1,4 +1,9 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
+#define __new_hotness__
 #define SECURITY_WIN32
 #define IO_BUFFER_SIZE  0x10000
 
@@ -11,22 +16,13 @@
 
 #include "Log.h"
 #include "snetpp.h"
-#ifdef _COSIGN_TRACE
-#define CosignTrace0( msg ) CosignLog( msg )
-#define CosignTrace1( msg, arg1 ) CosignLog( msg, arg1 )
-#define CosignTrace2( msg, arg1, arg2 ) CosignLog( msg, arg1, arg2 )
-#else
-#define CosignTrace0( msg ) 
-#define CosignTrace1( msg, arg1 )
-#define CosignTrace2( msg, arg1, arg2 )
-#endif
 
 Snet::Snet() {
 	this->s = INVALID_SOCKET;
 	this->useTls = FALSE;
 	this->readbuflen = READBUFSIZE;
 	this->readBuffer = NULL;
-	this->readBufferLength = 0;
+	this->readBufferSize = 0;
 	this->writeBuffer = NULL;
 	this->writeBufferLength = 0;
 }
@@ -75,9 +71,6 @@ Snet::getLine() {
 		}
 		if ( size <= 0 ) {
 			break;
-		}
-		if ( useTls ) {
-			/// Decrypt message
 		}
 		readbuf[ size ] = '\0';
 		data.append( readbuf );
@@ -189,8 +182,10 @@ Snet::secureRead() {
 	ss = SEC_E_INCOMPLETE_MESSAGE;
 	while( 1 ) {
 
-		if ( ss == SEC_E_INCOMPLETE_MESSAGE ) {
-			recvSize = recv( s, (char*)(readBuffer + readBufferOffset), readBufferLength - readBufferOffset, 0 );
+		if ( ss == SEC_E_INCOMPLETE_MESSAGE || readBufferOffset == 0 ) {
+			CosignTrace3( "recv()'ing bytes at offset %u\r\nreadBufferSize = %u\nreadBufferSize - readBufferOffset = %u",
+				readBufferOffset, readBufferSize,	readBufferSize - readBufferOffset );
+			recvSize = recv( s, (char*)(readBuffer + readBufferOffset), readBufferSize - readBufferOffset, 0 );
 	
 			if ( recvSize == SOCKET_ERROR ) {
 				CosignLog( L"Socket error on recv(): %d", WSAGetLastError() );
@@ -201,11 +196,13 @@ Snet::secureRead() {
 				return( -1 );
 			}
 //			cout << "Received " << recvSize << " encrypted bytes." << endl;
+			CosignTrace1( L"Received %d encrypted bytes", recvSize );
 			readBufferOffset += recvSize;
+			//readBufferLength += recvSize;
 		}
 
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].cbBuffer = readBufferLength;
+		buffers[0].cbBuffer = readBufferOffset;
 		buffers[0].pvBuffer = readBuffer;
 
 		buffers[1].BufferType = SECBUFFER_EMPTY;
@@ -219,7 +216,6 @@ Snet::secureRead() {
 		ss = DecryptMessage( &ctx, &bufferDesc, 0, NULL );
 		/// xxx make a switch?
 		if ( ss == SEC_E_INCOMPLETE_MESSAGE ) {
-			/// xxx read more data!
 			CosignTrace0( L"Need to recv() more data.  Continuing..." );
 			continue;
 		}
@@ -230,27 +226,28 @@ Snet::secureRead() {
 		if ( ss != SEC_E_OK &&
 			 ss != SEC_I_RENEGOTIATE &&
 			 ss != SEC_I_CONTEXT_EXPIRED ) {
-			 /*************************************************************************************/
 			 /// xxx need to throw this ss error so's it can be decoded into human-readble textz0rs
 			CosignLog( L"DecryptMessage() failed: 0x%x", ss );
 			if ( ss == SEC_E_INVALID_TOKEN ) {
 				CosignTrace0( L"Can SEC_E_INVALID_TOKEN be ignored?" );
 				return( 0 );
 			}
+			if ( ss == SEC_E_DECRYPT_FAILURE ) {
+				return( 0 );
+			}
 			return( -1 );
 		}
 		switch ( ss ) {
 			case SEC_E_OK:
-				CosignTrace0( L"ss is SEC_E_OK, but what does it mean?" );
+				CosignTrace0( L"ss is SEC_E_OK" );
 				break;
 			case SEC_I_RENEGOTIATE:
-				CosignTrace0( L"ss is SEC_I_RENEGOTIATE, but what does it mean?" );
+				CosignTrace0( L"ss is SEC_I_RENEGOTIATE" );
 				break;
 			case SEC_I_CONTEXT_EXPIRED:
-				CosignTrace0( L"ss is SEC_I_CONTEXT_EXPIRED, but what does it mean?" );
+				CosignTrace0( L"ss is SEC_I_CONTEXT_EXPIRED" );
 				break;
-			default :
-				CosignTrace0( L"ss is something else, but what does it mean?" );
+			default:
 				break;
 		}
 		extraBuffer = NULL;
@@ -260,31 +257,37 @@ Snet::secureRead() {
 				dataBuffer = &buffers[i];
 				CosignTrace2( L"Found %u bytes of SECBUFFER_DATA at %d", buffers[i].cbBuffer, i );
 			}
+			if ( buffers[i].BufferType == SECBUFFER_EXTRA ) {
+				CosignTrace2( L"Found %u bytes in SECBUFFER_EXTRA[ %d ]", buffers[i].cbBuffer, i );
+			}
 			if ( extraBuffer == NULL && buffers[i].BufferType == SECBUFFER_EXTRA ) {
 				extraBuffer = &buffers[i];
-				CosignTrace2( L"Found %u bytes in SECBUFFER_EXTRA at %d", buffers[i].cbBuffer, i );
+				CosignTrace2( L"Putting %u bytes from SECBUFFER_EXTRA[ %d ] into extraBuffer", buffers[i].cbBuffer, i );
 			}
 		}
 		if ( dataBuffer != NULL ) {
-			
 			data.append( (char*)dataBuffer->pvBuffer, dataBuffer->cbBuffer );
-			CosignTrace2( L"Decrypted %u bytes as: ", dataBuffer->cbBuffer, data.c_str() );
+			CosignTrace2( "Decrypted %u bytes as: %s", dataBuffer->cbBuffer, data.c_str() );
 			if ( dataBuffer->cbBuffer == 0 ) {
-				CosignTrace0( L"looping" );
+				CosignTrace0( L"cbBuffer is 0" );
 			}
 		}
-		if ( extraBuffer->pvBuffer != NULL && dataBuffer->cbBuffer == 0 ) {
-			MoveMemory( readBuffer, extraBuffer->pvBuffer, extraBuffer->cbBuffer );
-			readBufferLength = extraBuffer->cbBuffer;
+		CosignTrace0( L"new hotness" );
+		if ( extraBuffer != NULL ) {
 			CosignTrace0( L"Found extra data!" );
+			MoveMemory( readBuffer, extraBuffer->pvBuffer, extraBuffer->cbBuffer );
+			readBufferOffset = extraBuffer->cbBuffer;
 		} else {
+			readBufferOffset = 0;
 			CosignTrace0( L"No extra data found!" );
 			break;
 		}
+
 		if ( ss == SEC_I_RENEGOTIATE ) {
 			CosignLog( L"Need to renegotiate TLS connection.  Not yet implemented." );
 			return( -1 );
 		}
+		CosignTrace0( L"secureRead looping(0)" );
 	}
 	return( 0 );
 }
@@ -548,11 +551,10 @@ Snet::setStreamBufferSize() {
 //		"\nMaximum Message: " << streamSizes.cbMaximumMessage <<
 //		"\nTrailer: " << streamSizes.cbTrailer << endl;
 
-	readBufferLength = writeBufferLength = streamSizes.cbHeader + streamSizes.cbMaximumMessage + streamSizes.cbTrailer;
+	readBufferSize = writeBufferLength = streamSizes.cbHeader + streamSizes.cbMaximumMessage + streamSizes.cbTrailer;
 
-	/// xxx may need to change the memory allocation scheme for IIS 7 module
 	writeBuffer = (BYTE*)LocalAlloc(LMEM_FIXED, writeBufferLength );
-	readBuffer = (BYTE*)LocalAlloc(LMEM_FIXED, readBufferLength );
+	readBuffer = (BYTE*)LocalAlloc(LMEM_FIXED, readBufferSize );
 
 	if ( writeBuffer == NULL || readBuffer == NULL ) {
 //		cout << "No memory to allocate read and write buffers" << endl;

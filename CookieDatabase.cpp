@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2008 Regents of The University of Michigan.
+ * All Rights Reserved.  See COPYRIGHT.
+ */
 
 #include <windows.h>
 #include <string>
@@ -6,29 +10,16 @@
 #include "Log.h"
 #include "CosignServiceInfo.h"
 #include "CookieDatabase.h"
+#include "StringToWString.h"
 
 CookieDatabase::CookieDatabase() {
 }
 
-int
-StringToWString( std::string& str, std::wstring& wstr ) {
 
-	DWORD	bufferSize = (DWORD)((str.length() + 1)*2);
-	PWCHAR	buffer = new WCHAR[ bufferSize ];
-	size_t	charsConverted;
-	errno_t	err;
 
-	err = mbstowcs_s( &charsConverted, buffer, bufferSize, str.c_str(), bufferSize - 1);
-	if ( err != 0 ) {
-		CosignLogA( "mbstowcs_s( %s ) failed with %d", str.c_str(), err );
-		return( -1 );
-	}
-	wstr = buffer;
-	return( 0 );
-}
 
 void
-CookieDatabase::Init( std::wstring& databasePath, ULONGLONG et, int hl ) {
+CookieDatabase::Init( std::wstring& databasePath, ULONGLONG et, int hl, std::wstring& kerbDir, std::wstring& proxyDir  ) {
 
 	path = databasePath;
 	if ( path[ path.length() - 1 ] != '\\' &&
@@ -37,6 +28,8 @@ CookieDatabase::Init( std::wstring& databasePath, ULONGLONG et, int hl ) {
 	} 	
 	expireTime = et;
 	hashLength = hl;
+	kerberosTicketsDirectory = kerbDir;
+	proxyCookiesDirectory = proxyDir;
 	/// xxx check for appropriate permissions in directory here?
 	/// xxx check to make sure expireTime isn't really small?
 }
@@ -137,7 +130,7 @@ CookieDatabase::CheckCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 					csi->strFactors = iter->substr( 1, iter->length() );
 					break;
 				default:
-					CosignLogA( "Cookie file contained unknown identifer %s", iter->c_str() );
+					CosignLog( "Cookie file contained unknown identifer %s", iter->c_str() );
 					break;
 			}
 		}
