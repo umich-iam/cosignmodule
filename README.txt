@@ -45,19 +45,32 @@ Configuration:
 
 In the applicationhost.config file, add the following options:
 
+	<configSections>
+		...
+		<sectionGroup name="system.webServer">
+			...
+			<section name="cosign" overrideModeDefault="Allow" />
+			...
+		</sectionGroup>
+    </configSections>
+
+	...
+	
     <system.webServer>
 
       ...
 
       <cosign>
-        <webloginServer name="weblogin.example.org" loginUrl="https://weblogin.example.org/?" port="6663" postErrorRedirectUrl="https://weblogin.example.org/post_error.html" />
+        <webloginServer name="weblogin.example.org" loginUrl="https://weblogin.example.org/?" port="6663"
+			postErrorRedirectUrl="https://weblogin.example.org/post_error.html" />
         <crypto certificateCommonName="www.example.org" />
-        <cookieDb directory="C:\inetpub\temp\Cosign Cookie DB\" expireTime="120" />
-        <cookies secure="true" httpOnly="false" />
+        <cookieDb directory="%systemDrive%\inetpub\temp\Cosign Cookie DB\" expireTime="120" />
+        <proxyCookies directory="%SystemDrive%\inetpub\temp\Cosign Proxy DB" />
+        <cookies secure="true" httpOnly="true" />
         <service name="cosign-www.example.org" />
         <protected status="on" />
       </cosign>
-      
+
       ...
       
    </system.webServer>
