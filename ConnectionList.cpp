@@ -245,10 +245,15 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		CosignTrace0( L"Repopulating and trying again..." );
 		Depopulate();
 		Populate();
-		CheckCookie( cookie, csi, FALSE );
+		status = CheckCookie( cookie, csi, FALSE );
 	}
 
-	if ( status == COSIGNLOGGEDIN ) {
+    /*
+     * DAP UPENN: If status is COSIGNLOGGEDIN but goodConnnections is 0,
+     * that means we repopulated and tried again successfully above and,
+     * therefore, this block shouldn't run
+     */
+    if ( status == COSIGNLOGGEDIN && goodConnections != 0) {
 		CosignTrace0( L"Putting values into csi" );
 		std::vector<std::string>	authData;
 		std::stringstream	cookieParser( in );

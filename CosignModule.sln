@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CosignModule", "CosignModule.vcproj", "{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CookieGeneratorTest", "CookieGeneratorTest\CookieGeneratorTest.vcproj", "{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentation", "{41CAB066-1D3F-4FC4-9F2D-D6F410103DCE}"
 	ProjectSection(SolutionItems) = preProject
 		bin\arcm.bat = bin\arcm.bat
@@ -13,10 +11,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentat
 		Notes.txt = Notes.txt
 		README.txt = README.txt
 	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LogTest", "LogTest\LogTest.vcproj", "{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SspiTest", "sspiTest\SspiTest.vcproj", "{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,36 +33,6 @@ Global
 		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|Win32.ActiveCfg = x64 Release|x64
 		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|x64.ActiveCfg = x64 Release|x64
 		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|x64.Build.0 = x64 Release|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Debug|Win32.ActiveCfg = Debug|Win32
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Debug|Win32.Build.0 = Debug|Win32
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Debug|x64.ActiveCfg = Debug|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Debug|x64.Build.0 = Debug|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Release|Win32.ActiveCfg = Release|Win32
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Release|Win32.Build.0 = Release|Win32
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Release|x64.ActiveCfg = Release|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.Release|x64.Build.0 = Release|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.x64|Win32.ActiveCfg = x64 Release|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.x64|x64.ActiveCfg = x64 Release|x64
-		{F6570B9E-6CA0-4EA5-A179-BF33DD0DBE73}.x64|x64.Build.0 = x64 Release|x64
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.Debug|Win32.ActiveCfg = Debug|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.Debug|Win32.Build.0 = Debug|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.Debug|x64.ActiveCfg = Debug|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.Release|Win32.ActiveCfg = Release|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.Release|Win32.Build.0 = Release|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.Release|x64.ActiveCfg = Release|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.x64|Win32.ActiveCfg = Release|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.x64|Win32.Build.0 = Release|Win32
-		{58B7E188-D4EC-4433-ABEC-BD6C1F5612CD}.x64|x64.ActiveCfg = Release|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Debug|Win32.ActiveCfg = Debug|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Debug|Win32.Build.0 = Debug|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Debug|x64.ActiveCfg = Debug|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Release|Win32.ActiveCfg = Release|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Release|Win32.Build.0 = Release|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Release|x64.ActiveCfg = Release|x64
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.Release|x64.Build.0 = Release|x64
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.x64|Win32.ActiveCfg = Release|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.x64|Win32.Build.0 = Release|Win32
-		{4976D1F7-D4B9-4ED6-900F-7CBD58D529D0}.x64|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
