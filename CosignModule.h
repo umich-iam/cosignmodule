@@ -28,6 +28,13 @@ public :
 	OnAuthenticateRequest(
 		IHttpContext*	context,
 		IN IAuthenticationProvider* pProvider );
+	
+	REQUEST_NOTIFICATION_STATUS
+    OnExecuteRequestHandler(
+        IN IHttpContext *                       pHttpContext,
+        IN IHttpEventProvider *                 pProvider
+    );
+
 	int CheckCookie( std::string* cookie );
 
 	CosignModule( IAppHostAdminManager** aham, ConnectionList* cl, CookieDatabase* cdb );
@@ -44,18 +51,24 @@ private :
 	//Configuration data
 	IAppHostAdminManager* aham;
 	std::string	loginUrl;
-	std::string  postErrorRedirectUrl;
+	std::string postErrorRedirectUrl;
 	std::string	serviceName;
 	BOOL	cookiesSecure;
 	BOOL	cookiesHttpOnly;
 	std::vector<std::string>		factors;
 	std::string strFactors;
-	
+	std::string validReference;
+	std::string validationErrorRedirect;
+
 	BOOL Log( LPCWSTR str );
 	BOOL Log( PCSTR str );
 	PROTECTEDSTATUS GetConfig( IHttpContext*	context );
 	REQUEST_NOTIFICATION_STATUS SetCookieAndRedirect( IHttpContext* context );
+	REQUEST_NOTIFICATION_STATUS	RedirectToLoginServer( IHttpContext* context );
 	int ParseServiceCookie( std::string& cookie, std::string& serviceCookie );
+	COSIGNSTATUS	NetCheckCookie( std::string& cookie,  CosignServiceInfo& csi, BOOL retrieve, COSIGNSTATUS fileStatus );
+	PROTECTEDSTATUS	GetValidationConfig( IHttpContext* context );
+
 };
 
 class CosignModuleFactory : public IHttpModuleFactory {

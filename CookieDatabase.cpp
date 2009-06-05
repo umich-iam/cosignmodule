@@ -91,7 +91,7 @@ CookieDatabase::CheckCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 		/// xxx sanity check?  Make sure currenttime is later than filetime?
 		if ( diff > expireTime ) {
 			CloseHandle( hcf );
-			CosignLog( L"And that's too long!" );
+			CosignLog( L"Cookie is too old." );
 			return( COSIGNLOGGEDOUT );
 		}
 

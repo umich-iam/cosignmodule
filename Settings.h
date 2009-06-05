@@ -45,5 +45,7 @@ public:
 	ULONGLONG	 cookieDbExpireTime;
 	std::wstring kerberosTicketsDirectory;
 	std::wstring proxyCookiesDirectory;
+	std::string	 validReference;
+	std::string  validationErrorUrl;
 
 };

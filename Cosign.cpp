@@ -56,14 +56,16 @@ RegisterModule(
 
 	hr = info->SetRequestNotifications(
 		cmf,
-		RQ_AUTHENTICATE_REQUEST,
+		RQ_AUTHENTICATE_REQUEST | RQ_EXECUTE_REQUEST_HANDLER,
 		0 );
 	if ( FAILED(hr) ) {
 		return( hr );
 	}
+	info->SetPriorityForRequestNotification( RQ_AUTHENTICATE_REQUEST, PRIORITY_ALIAS_FIRST );
 
+	return( hr );
 
-	CosignConfigChangeModule*	cccm = new CosignConfigChangeModule;
+/*	CosignConfigChangeModule*	cccm = new CosignConfigChangeModule;
 
 	if ( !cccm ) {
 		return( HRESULT_FROM_WIN32( ERROR_NOT_ENOUGH_MEMORY ) );
@@ -80,7 +82,7 @@ RegisterModule(
 	}
 
 	return( hr );
-
+*/
 /* xxx not sure if necessary to be notified of configuration changes or if configuration data can be read
 	by each CosignModule instance with minimal performance penalty
 	

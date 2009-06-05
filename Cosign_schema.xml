@@ -37,5 +37,9 @@
         <enum name="allowPublicAccess" value="2" />
       </attribute>
     </element>
+    <element name="validation">
+      <attribute name="validReference" type="string" />
+      <attribute name="errorRedirectUrl" type="string" />
+    </element>
   </sectionSchema>
 </configSchema>

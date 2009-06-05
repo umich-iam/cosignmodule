@@ -55,10 +55,13 @@ GetCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 }
 
 bool
-ConnectionList:: getProxyCookies() {
+ConnectionList::getProxyCookies() {
 		CosignLog( L"proxyCookiesDirectory is set to", proxyCookiesDirectory.c_str() );
 		CosignLog( L"proxyCookiesDirector.empty() = %s", (proxyCookiesDirectory.empty() ? L"true" : L"false" ) );
-		return( !proxyCookiesDirectory.empty() );
+		if ( proxyCookiesDirectory == L"\\\\?\\" || proxyCookiesDirectory.empty() ) {
+			return( false );
+		}
+		return( true );
 	}
 ConnectionList::ConnectionList() {
 	numServers = 0;

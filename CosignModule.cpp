@@ -20,6 +20,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <boost/regex.hpp>
 
 #include "fbase64.h"
 #include "CookieGenerator.h"
@@ -30,8 +31,23 @@
 #include "ConnectionList.h"
 #include "CookieDatabase.h"
 #include "CosignModule.h"
+#include "CosignUser.h"
 
 
+inline PCSTR GetSerVar( PCSTR varName, IHttpContext* context )
+{
+	PCSTR	value = NULL;
+	DWORD	length = 0;
+	context->GetServerVariable( varName, &value, &length );
+	value = (PCSTR)context->AllocateRequestMemory( length + 1 );
+	if ( value == NULL ) {
+		CosignLog( L"Not enough memory to allocate for SERVER_PORT_SECURE" );
+		return( NULL );
+	}
+
+	context->GetServerVariable( varName, &value, &length );
+	return( value );
+}
 inline PCCERT_CONTEXT
 RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 
@@ -57,7 +73,6 @@ RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 			throw( CosignError( GetLastError(), __LINE__ -1, __FUNCTION__ ) );
 		}
 		if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
-			// Success happens here
 			CosignLog( L"Found matching certificate!\n" );
 			return( ctx );
 		}
@@ -314,6 +329,200 @@ GetPropertyValueByName(
 	}
 }
 
+PROTECTEDSTATUS
+CosignModule::GetValidationConfig( IHttpContext* context ) {
+
+	HRESULT	hr;
+	int		retCode			= 0;
+	PROTECTEDSTATUS	retStatus = cosignUnprotected;
+	PCTSTR	appConfigPath	= NULL;
+	VARIANT	value;
+	char*	strValue		= NULL;
+	BSTR	bstrSection		= SysAllocString( L"system.webServer/cosign" );
+	BSTR	bstrService		= SysAllocString( L"service" );
+	BSTR	bstrName		= SysAllocString( L"name" );
+	BSTR    bstrProtected	= SysAllocString( L"protected" );
+	BSTR	bstrStatus		= SysAllocString( L"status" );
+	BSTR	bstrLoginUrl			= SysAllocString(L"loginUrl");
+	BSTR	bstrPostErrorRedirectUrl= SysAllocString(L"postErrorRedirectUrl");
+	BSTR	bstrWebloginServer		= SysAllocString(L"webloginServer" );
+	BSTR	bstrCookies		= SysAllocString(L"cookies");
+	BSTR	bstrSecure		= SysAllocString(L"secure");
+	BSTR	bstrHttpOnly	= SysAllocString(L"httpOnly");
+	BSTR	bstrAdd			= SysAllocString(L"add");
+	BSTR	bstrFactor		= SysAllocString(L"factor");
+	BSTR	bstrValidation	= SysAllocString(L"validation");
+	BSTR	bstrValidReference = SysAllocString(L"validReference");
+	BSTR	bstrErrorRedirectUrl = SysAllocString(L"errorRedirectUrl");
+
+	BSTR	bstrConfigPath;
+	IHttpApplication*	app	= NULL;
+	IAppHostElement*	ahe	= NULL;
+	IAppHostElement*	ahe2= NULL;
+	IAppHostProperty*	ahp	= NULL;
+	IMetadataInfo*			imi		= NULL;
+	PCTSTR					metaPath= NULL;
+	IAppHostConfigManager*	ahcm	= NULL;
+	IAppHostConfigFile*		ahcf	= NULL;
+
+	CosignTrace0( L"{*********************GetValidationConfig*********************}\n" );
+
+	
+	imi = context->GetMetadata();
+	metaPath = imi->GetMetaPath();
+		
+	CosignTrace1( L"Metapath = %s\n", metaPath );
+	bstrConfigPath = SysAllocString( metaPath );
+	
+	hr = aham->GetAdminSection( bstrSection, bstrConfigPath, &ahe );
+	if ( FAILED(hr) || ahe == NULL ) {
+		CosignLog( L"GetAdminSection( %s, %s ) failed.", bstrSection, bstrConfigPath );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+		
+	/* Should never fail? */
+/*	hr = ahe->GetElementByName( bstrProtected, &ahe2 );
+	if ( FAILED(hr) || ahe2 == NULL ) {
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrStatus, VT_I4 );
+
+	switch( V_I4(&value) ) {
+	case 0:
+		return( cosignUnprotected );
+	case 1:
+		retStatus = cosignProtected;
+		break;
+	case 2:
+		retStatus = cosignAllowPublicAccess;
+		break;
+	default:
+		throw( CosignError( E_FAIL, __LINE__ -2, __FILE__ ) );
+		break;
+	}
+*/
+	hr = ahe->GetElementByName( bstrValidation, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <validation> element" );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrValidReference, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+	this->validReference = strValue;
+	delete strValue;
+
+	GetPropertyValueByName( ahe2, &value, &bstrErrorRedirectUrl, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+	this->validationErrorRedirect = strValue;
+	delete strValue;
+
+
+	hr = ahe->GetElementByName( bstrWebloginServer, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <webloginServer> element" );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrLoginUrl, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+	loginUrl = strValue;
+	delete strValue;
+
+	GetPropertyValueByName( ahe2, &value, &bstrPostErrorRedirectUrl, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+	postErrorRedirectUrl = strValue;
+	delete strValue;
+
+	hr = ahe->GetElementByName( bstrService, &ahe2 );
+	if ( FAILED(hr) || ahe2 == NULL ) {
+		OutputDebugString( L"GetElementByName(\"service\") failed." );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrName, VT_BSTR );
+	strValue = _com_util::ConvertBSTRToString( value.bstrVal ); 
+	serviceName = strValue;
+	delete strValue;
+	const std::string cosignServicePrefix = "cosign-";
+	if ( serviceName.find( cosignServicePrefix ) != 0 ) {
+		serviceName.replace( 0, 0, cosignServicePrefix );
+	}
+
+	IAppHostElementCollection* ahec;
+	hr = ahe2->get_Collection( &ahec );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not get service collection" );
+		throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
+	} 
+	DWORD numFactors;
+	hr = ahec->get_Count( &numFactors );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not get_count for factors" );
+		throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
+	}
+	CosignTrace1( L"NumFactors = %u", numFactors );
+	IAppHostElement* collElem;
+	strFactors = "";
+	for ( unsigned int i = 0; i < numFactors; i++ ) {
+		VARIANT	index;
+		index.vt = VT_UINT;
+		index.uintVal = i;
+		hr = ahec->get_Item( index, &collElem );
+		if ( FAILED(hr) ) {
+			CosignLog( L"Could not get collection." );
+			throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
+		}
+		GetPropertyValueByName( collElem, &value, &bstrFactor, VT_BSTR );
+		CosignTrace2( L"Got %s = %s", bstrFactor, value.bstrVal );
+		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+		if ( strFactors == "" ) {
+			strFactors += strValue;
+		} else {
+			strFactors += ",";
+			strFactors += strValue;
+		}
+		factors.push_back( strValue );
+		delete strValue;
+	}
+#ifdef COSIGNTRACE
+	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
+		CosignLog( "Factor from vector = %s", iter->c_str() );
+	}
+#endif
+
+
+	/// xxx does this take into account elements that are optional?
+	/// what will happen if we try to retrieve a value that hasn't been set?
+	hr = ahe->GetElementByName( bstrCookies, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <cookies> element" );
+		throw( CosignError( hr, __LINE__ -2, __FUNCTION__ ) );
+	}
+	GetPropertyValueByName( ahe2, &value, &bstrSecure, VT_BOOL );
+	cookiesSecure = V_BOOL(&value);
+
+	GetPropertyValueByName( ahe2, &value, &bstrHttpOnly, VT_BOOL );
+	cookiesHttpOnly = V_BOOL(&value);
+
+	SysFreeString( bstrLoginUrl );
+	SysFreeString( bstrPostErrorRedirectUrl	);
+	SysFreeString( bstrSection );
+	SysFreeString( bstrService );
+	SysFreeString( bstrName );
+	SysFreeString( bstrProtected );
+	SysFreeString( bstrStatus );
+	SysFreeString( bstrWebloginServer );
+	SysFreeString( bstrCookies );
+	SysFreeString( bstrSecure );
+	SysFreeString( bstrHttpOnly	);
+	SysFreeString( bstrAdd );
+	SysFreeString( bstrFactor );
+	SysFreeString( bstrValidation );
+	SysFreeString( bstrValidReference );
+	SysFreeString( bstrErrorRedirectUrl );
+
+	CosignTrace0( L"{*********************GetValidationConfig Done****************}\n" );
+	return( retStatus );
+
+}
 /* 
  * GetConfig()
  * return:
@@ -353,7 +562,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	IAppHostConfigManager*	ahcm	= NULL;
 	IAppHostConfigFile*		ahcf	= NULL;
 
-	CosignTrace0( L"NEW GetConfig()uration logics!\n" );
+	CosignTrace0( L"New GetConfig()uration logics!\n" );
 
 	
 	imi = context->GetMetadata();
@@ -460,6 +669,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	}
 #endif
 
+
 	/// xxx does this take into account elements that are optional?
 	/// what will happen if we try to retrieve a value that hasn't been set?
 	hr = ahe->GetElementByName( bstrCookies, &ahe2 );
@@ -491,9 +701,77 @@ CosignModule::GetConfig( IHttpContext* context ) {
 }
 
 REQUEST_NOTIFICATION_STATUS
-CosignModule::SetCookieAndRedirect(
-	IHttpContext* context ) {
+CosignModule::RedirectToLoginServer(
+	IHttpContext*	context ) 
+{
+	DWORD spsSize = 0;
+	PCSTR serverPortSecure = NULL;
+	context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
+	serverPortSecure = (PCSTR)context->AllocateRequestMemory( spsSize + 1 );
+	context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
+	if ( serverPortSecure == NULL ) {
+		CosignLog( L"Not enough memory to allocate for SERVER_PORT_SECURE" );
+		/// xxx set an error
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+	CosignTrace1( "SERVER_PORT_SECURE = %s\n", serverPortSecure );
+
+	std::string	protocol;
+	if ( atoi(serverPortSecure) ) {
+		protocol = "https";
+	} else {
+		protocol = "http";
+	}
+
+	/// xxx Note: Should also check SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
+
+	PCSTR	url = NULL;
+	DWORD	urlSize = 0;
+	context->GetServerVariable( "URL", &url, &urlSize );
+	url = (PCSTR)context->AllocateRequestMemory( urlSize + 1 );
+	if ( url == NULL ) {
+		CosignLog( L"Not enough memory to allocate for URL" );
+		/// xxx set an error
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+	context->GetServerVariable( "URL", &url, &urlSize );
+	CosignTrace1( "URL = %s", url );
+
+	DWORD serverNameSize = 0;
+	PCSTR serverName = NULL;
+	context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
+	serverName = (PCSTR)context->AllocateRequestMemory( serverNameSize + 1 );
+	if ( serverName == NULL ) {
+		CosignLog( L"Not enough memory to allocate for SERVER_NAME" );
+		/// xxx set an error
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+	context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
+	CosignTrace1( "SERVER_NAME = %s", serverName );
+
+	std::string destination = protocol;
+	destination += "://";
+	destination += serverName;
+	destination += url;
+
 	
+	std::string newLocation;
+	if ( factors.size() > 0 ) {
+		newLocation = loginUrl + "factors=" + strFactors + "&" + serviceName + "&" + destination;
+	} else {
+		newLocation = loginUrl + serviceName + "&" + destination;
+	}
+	CosignTrace1( "Redirecting to: %s\n", newLocation.c_str() );
+	IHttpResponse*	response = context->GetResponse();
+	response->Redirect( newLocation.c_str(), TRUE, FALSE );
+	return( RQ_NOTIFICATION_FINISH_REQUEST );		
+
+}
+
+REQUEST_NOTIFICATION_STATUS
+CosignModule::SetCookieAndRedirect(
+	IHttpContext* context )
+{
 	char	newCookie[ 128 ];
 	int		newCookieLength = 128;
 	PCSTR	method = NULL;
@@ -681,7 +959,7 @@ CosignModule::OnAuthenticateRequest(
 		if ( protectedStatus == cosignAllowPublicAccess ) {
 			goto convertUserData;
 		}
-		return( SetCookieAndRedirect( context ) );
+		return( RedirectToLoginServer( context ) );
 	} else {
 		cookie = pcstrCookie;
 		if ( cookie.length() == 0 ) {
@@ -696,7 +974,7 @@ CosignModule::OnAuthenticateRequest(
 			if ( protectedStatus == cosignAllowPublicAccess ) {
 				goto convertUserData;
 			}
-			return( SetCookieAndRedirect( context ) );	
+			return( RedirectToLoginServer( context ) );	
 		}
 		CosignTrace1( "Found service cookie: \"%s\"\n", serviceCookie.c_str() );
 	}
@@ -712,6 +990,7 @@ CosignModule::OnAuthenticateRequest(
 	}
 	/// Step two, netcheck cookie
 
+#ifdef __MOVING_NET_CHECK_COOKIE__
 	CosignTrace0( L"CHECKing cookie, waiting for mutex." );
 	///std::string	ck = serviceName + "=" + serviceCookie;
 	DWORD wfso = WaitForSingleObject( cl->mutex, INFINITE );
@@ -746,6 +1025,9 @@ CosignModule::OnAuthenticateRequest(
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 	CosignTrace0( L"Released the mutex." );
+#else
+	COSIGNSTATUS status = NetCheckCookie( ck,  csi, TRUE, fileStatus );
+#endif //__MOVING_NET_CHECK_COOKIE__
 
 	switch ( status ) {
 		case COSIGNLOGGEDIN:
@@ -757,7 +1039,7 @@ CosignModule::OnAuthenticateRequest(
 			break;
 		case COSIGNLOGGEDOUT:
 			CosignTrace0( L"CheckCookie returned logged out, setting new cookie" );
-			return( SetCookieAndRedirect( context ) );
+			return( RedirectToLoginServer( context ) );
 		case COSIGNERROR:
 			CosignLog( L"CheckCookie returned an error" );
 			if ( protectedStatus == cosignAllowPublicAccess ) {
@@ -769,7 +1051,7 @@ CosignModule::OnAuthenticateRequest(
 			if ( protectedStatus == cosignAllowPublicAccess ) {
 				goto convertUserData;
 			}
-			return( SetCookieAndRedirect( context ) );
+			return( RedirectToLoginServer( context ) );
 		default:
 			CosignLog( L"CheckCookie returned unknown value" );
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
@@ -781,7 +1063,7 @@ CosignModule::OnAuthenticateRequest(
 			if ( protectedStatus == cosignAllowPublicAccess ) {
 				goto convertUserData;
 			}
-			return( SetCookieAndRedirect( context ) );
+			return( RedirectToLoginServer( context ) );
 		} 
 	}
 
@@ -799,9 +1081,12 @@ convertUserData:
 		if ( err != 0 ) {
 			CosignLog( "mcstowcs_s(%s) failed with %d", csi.strFactors.c_str(), err );
 		}
+		hr = context->SetServerVariable( "HTTP_COSIGN_FACTOR", buffer );
 		hr = context->SetServerVariable( "COSIGN_FACTOR", buffer );
 		if ( hr != S_OK ) {
 			CosignLog( L"Could not set server variable COSIGN_FACTOR" );
+		} else {
+			CosignLog( L"Set HTTP_COSIGN_FACTOR" );
 		}
 	}
 
@@ -810,10 +1095,23 @@ convertUserData:
 		if ( err != 0 ) {
 			CosignLog( "mcstowcs_s(%s) failed with %d", csi.user.c_str(), err );
 		}
-		hr = context->SetServerVariable( "REMOTE_USER", buffer );
-		if ( hr != S_OK ) {
-			CosignLog( L"Could not set server variable REMOTE_USER" );
-		}
+
+        /*
+         * Set REMOTE_USER by way of (IAuthenticationProvider*) pProvider->SetUser()
+         * based on http://msdn.microsoft.com/en-us/library/ms689307.aspx
+         */
+        IHttpUser* currentUser = context->GetUser();
+
+        DWORD usernameLength = (DWORD)csi.user.length() + 1;
+        PWSTR username = (PWSTR)context->AllocateRequestMemory( usernameLength * sizeof(wchar_t) );
+
+        MultiByteToWideChar(CP_ACP, 0, csi.user.c_str(), -1, username, usernameLength);
+
+        if (NULL == currentUser) {
+            CosignUser* cosignUser = new CosignUser( (PCWSTR)username );
+            pProvider->SetUser(cosignUser);
+        }
+
 	}
 
 	if ( !csi.realm.empty() ) {
@@ -821,6 +1119,7 @@ convertUserData:
 		if ( err != 0 ) {
 			CosignLog( L"mcstowcs_s(%s) failed with %d", csi.realm.c_str(), err );
 		}
+		hr = context->SetServerVariable( "HTTP_REMOTE_REALM", buffer );
 		hr = context->SetServerVariable( "REMOTE_REALM", buffer );
 		if ( hr != S_OK ) {
 			CosignLog( L"Could not set server variable REMOTE_REALM" );
@@ -833,12 +1132,56 @@ convertUserData:
 			CosignLog( "mcstowcs_s(%s) failed with %d", serviceName.c_str(), err );
 		}
 		hr = context->SetServerVariable( "COSIGN_SERVICE", buffer );
+		hr = context->SetServerVariable( "HTTP_COSIGN_SERVICE", buffer );
 		if ( hr != S_OK ) {
 			CosignLog( L"Could not set server variable COSIGN_SERVICE" );
 		}
 	}
 
 	return( RQ_NOTIFICATION_CONTINUE );
+}
+
+COSIGNSTATUS
+CosignModule::NetCheckCookie( std::string& cookie, CosignServiceInfo& csi, BOOL retrieve, COSIGNSTATUS fileStatus = COSIGNLOGGEDOUT )
+{
+	COSIGNSTATUS status = COSIGNERROR;
+		CosignTrace0( L"CHECKing cookie, waiting for mutex." );
+	///std::string	ck = serviceName + "=" + serviceCookie;
+	DWORD wfso = WaitForSingleObject( cl->mutex, INFINITE );
+	CosignTrace0( L"Obtained the mutex." );
+	if ( wfso != WAIT_OBJECT_0 ) {
+		if ( wfso == WAIT_FAILED ) {
+			///  pProvider->SetErrorStatus( GetLastError() );
+			CosignLog( L"Error waiting for connection list mutex: 0x%x", GetLastError() );
+		} else {
+			///  pProvider->SetErrorStatus( wfso );
+			CosignLog( L"Error waiting for connection list mutex: 0x%x", wfso );
+		}
+		return( COSIGNERROR );
+	}
+	status = cl->CheckCookie( &cookie, &csi, TRUE );
+	CosignTrace0( L"Cookie, user is logged in." );
+
+		/*
+		 * fileStatus == COSIGNOK means that the service cookie is not locally cached.
+		 * If this is the case, then assume that proxy cookies and kerberos tickets
+		 * have not yet been retrieved and get them now.
+		 */
+	if ( retrieve ) {
+		if ( fileStatus == COSIGNOK && cl->getProxyCookies() ) {
+			cl->RetrieveProxyCookies( cookie );
+		}	
+		if ( fileStatus == COSIGNOK && cl->getKerberosTickets() ) {
+			cl->RetrieveKerberosTicket();
+		}
+	}
+	if ( !ReleaseMutex( cl->mutex ) ) {
+		CosignLog( L"Error releasing connection list mutex: 0x%x", GetLastError() );
+		///  pProvider->SetErrorStatus( GetLastError() );
+		return( COSIGNERROR );
+	}
+	CosignTrace0( L"Released the mutex." );
+	return( status );
 }
 
 BOOL
@@ -923,20 +1266,21 @@ CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham ) {
 DWORD
 CosignModuleFactory::Init() {
 
-	HRESULT		hr;
-	int			retCode = 0;
-	BSTR		bstrSection			= SysAllocString(L"system.webServer/cosign");
-	BSTR		bstrConfigPath		= SysAllocString(L"MACHINE/WEBROOT/APPHOST");
-	BSTR		bstrWebloginServer	= SysAllocString(L"webloginServer");
-	BSTR		bstrName			= SysAllocString(L"name");
-	BSTR		bstrPort			= SysAllocString(L"port");
-	BSTR		bstrCrypto			= SysAllocString(L"crypto");
-	BSTR		bstrCertificateCommonName	= SysAllocString(L"certificateCommonName");
-	BSTR		bstrCookieDb		= SysAllocString(L"cookieDb");
-	BSTR		bstrDirectory		= SysAllocString(L"directory");
-	BSTR		bstrExpireTime		= SysAllocString(L"expireTime");
-	BSTR		bstrKerberosTickets	= SysAllocString(L"kerberosTickets");
-	BSTR		bstrProxyCookies	= SysAllocString(L"proxyCookies");
+	HRESULT	hr;
+	int		retCode = 0;
+	BSTR	bstrSection			= SysAllocString(L"system.webServer/cosign");
+	BSTR	bstrConfigPath		= SysAllocString(L"MACHINE/WEBROOT/APPHOST");
+	BSTR	bstrWebloginServer	= SysAllocString(L"webloginServer");
+	BSTR	bstrName			= SysAllocString(L"name");
+	BSTR	bstrPort			= SysAllocString(L"port");
+	BSTR	bstrCrypto			= SysAllocString(L"crypto");
+	BSTR	bstrCertificateCommonName	= SysAllocString(L"certificateCommonName");
+	BSTR	bstrCookieDb		= SysAllocString(L"cookieDb");
+	BSTR	bstrDirectory		= SysAllocString(L"directory");
+	BSTR	bstrExpireTime		= SysAllocString(L"expireTime");
+	BSTR	bstrKerberosTickets	= SysAllocString(L"kerberosTickets");
+	BSTR	bstrProxyCookies	= SysAllocString(L"proxyCookies");
+
 	IAppHostElement*	ahe		= NULL;
 	IAppHostElement*	ahe2	= NULL;
 	IAppHostProperty*	ahp		= NULL;
@@ -979,6 +1323,8 @@ CosignModuleFactory::Init() {
 			config.webloginServer.empty() ) {
 			throw( CosignError( ERROR_INVALID_DATA, __LINE__ -1, __FILE__ ) );
 		}
+
+
 #ifdef COSIGNTRACE
 		config.dump();
 #endif
@@ -1033,4 +1379,69 @@ CosignModuleFactory::Terminate() {
 	WSACleanup();
 	OutputDebugString( L"CosignModuleFactory terminated." );
 	delete this;
+}
+
+REQUEST_NOTIFICATION_STATUS
+CosignModule::OnExecuteRequestHandler(
+	IN IHttpContext *                       context,
+	IN IHttpEventProvider *                 pProvider
+) {
+	// Parse query string
+	PCSTR queryString = GetSerVar( "QUERY_STRING", context );
+	std::string qs = queryString;
+	CosignLog( "execreqhandler: qs = %s", qs.c_str() );
+
+	/// xxx need better error handling of string parsing functions.
+	// http://www.example.org/cosign/valid/?cosign-www.example=abc123&https://www.example.org/protected/
+	size_t pos = qs.find_first_of( "=" );
+	std::string serviceName = qs.substr( 0, pos );
+	qs = qs.substr( pos );
+
+
+	pos = qs.find_first_of( "&" );
+	std::string serviceCookie = qs.substr( 1, pos - 1);
+	std::string destination = qs.substr( pos+1 );
+
+	// Get configuration data for validation URL and postErrorRedirectUrl
+	this->validReference = "blargh";
+	GetValidationConfig( context );
+	//GetConfig( context );
+	// Validate URL
+	CosignLog( "Regex is %s", this->validReference.c_str() );
+	//boost::regex	pattern( this->validReference );
+	boost::regex	pattern( this->validReference.c_str() );
+	if ( !boost::regex_match( destination, pattern ) ) {
+		CosignLog( "Your destination of %s doesn't match %s", destination.c_str(), this->validReference.c_str() );
+	} else {
+		CosignLog( "Your destination of %s totally matches %s", destination.c_str(), this->validReference.c_str() );
+	}
+	
+
+
+	// CHECK service cookie
+	CosignLog( "CHECK'ing cookie" );
+	CosignServiceInfo	csi;
+
+	serviceCookie = serviceName + "=" + serviceCookie;
+	COSIGNSTATUS status = NetCheckCookie( serviceCookie, csi, FALSE );
+
+	CosignLog( "All done with that!" );
+
+
+
+	IHttpResponse* response = context->GetResponse();
+
+	std::string cookieHeader = serviceCookie + ";path=/" +
+		(cookiesSecure ? ";secure" : "" ) +
+		(cookiesHttpOnly ?" ;httponly" : "" ) +
+		";";
+
+	if ( response->SetHeader( "Set-Cookie", cookieHeader.c_str(), (USHORT)cookieHeader.length() + 1, TRUE ) != S_OK ) {
+		CosignLog( L"Error setting cookie header" );
+	}
+
+
+
+	response->Redirect( destination.c_str(), TRUE, FALSE );
+    return( RQ_NOTIFICATION_FINISH_REQUEST );
 }

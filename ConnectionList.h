@@ -21,7 +21,12 @@ public:
 	void Init( std::wstring& server, int port, PCCERT_CONTEXT ctx, std::wstring& kerbDir, std::wstring& proxyDir );
 	void Depopulate();
 	bool getProxyCookies();
-	bool getKerberosTickets() { return( !kerberosTicketsDirectory.empty() ); }
+	bool getKerberosTickets() { 
+		if ( kerberosTicketsDirectory == L"\\\\?\\" || kerberosTicketsDirectory.empty() ) {
+			return( false );
+		}
+		return( true );
+	}
 
 private:
 	int				numServers;

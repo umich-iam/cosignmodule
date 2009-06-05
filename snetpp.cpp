@@ -3,7 +3,6 @@
  * All Rights Reserved.  See COPYRIGHT.
  */
 
-#define __new_hotness__
 #define SECURITY_WIN32
 #define IO_BUFFER_SIZE  0x10000
 
@@ -272,7 +271,6 @@ Snet::secureRead() {
 				CosignTrace0( L"cbBuffer is 0" );
 			}
 		}
-		CosignTrace0( L"new hotness" );
 		if ( extraBuffer != NULL ) {
 			CosignTrace0( L"Found extra data!" );
 			MoveMemory( readBuffer, extraBuffer->pvBuffer, extraBuffer->cbBuffer );
