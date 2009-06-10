@@ -1,13 +1,18 @@
 
-Configure SSL certificates and permissions:
+== Installation instructions for IIS 7 CosignModule ==
 
-A certificate needs to have already been generated:
-http://technet2.microsoft.com/WindowsServer2008/f/?en/Library/bf4afb4c-4ce3-40e1-bd4b-d7df6daeb9b61033.mspx
+== Configure SSL certificates and permissions ==
+
+Generate an SSL certificate and have it signed, if needed:
+http://technet.microsoft.com/en-us/library/cc732906(WS.10).aspx
 
 
 IIS_USRS (or the process IIS runs as) needs Full Control and Read permissions in the following Registry key:
 	HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates\MY	
 
+(Note: unlike the IIS 6 version of the cosign filter, there is no need to export or generate a key/cert pair
+as a plain text file.  The IIS7 CosignModule retrieves a certificate from the Windows certificate store.  See
+configuration below.)
 
 Give IIS_IUSRS permission from within certificate manager.
 	Start -> Run
@@ -30,10 +35,10 @@ Create a folder for the service cookie cache:
 Permissions: IIS_IUSERS, full control
 
 
-Install any necessary Certificate authority files:
-Cosign uses the CA file to verify the identity of the weblogin server it is talking to.
+== Install any necessary Certificate authority files ==
+Cosign uses a certificate authority file to verify the identity of the weblogin server it is talking to.
 
-For example, the University of Michigan weblogin servers are signed by the UM Web Certificate authority.
+For example, the University of Michigan weblogin servers' certificates are signed by the UM Web Certificate authority.
 To install UMWebCA.pem certificate:
     Download the file: http://www.umich.edu/~umweb/umwebCA.pem
 	Open Certificates from local machine (see above).
@@ -41,7 +46,7 @@ To install UMWebCA.pem certificate:
 	Select the umwebca.pem file.
 
 
-Configuration:
+== Configuration ==
 
 In the applicationhost.config file, add the following options:
 
@@ -65,15 +70,18 @@ In the applicationhost.config file, add the following options:
 			postErrorRedirectUrl="https://weblogin.example.org/post_error.html" />
         <crypto certificateCommonName="www.example.org" />
         <cookieDb directory="%systemDrive%\inetpub\temp\Cosign Cookie DB\" expireTime="120" />
-        <proxyCookies directory="%SystemDrive%\inetpub\temp\Cosign Proxy DB" />
+	    <proxyCookies directory="%SystemDrive%\inetpub\temp\Cosign Proxy DB" />
+        <validation validReference="https?://www\.example\.org(/.*)?"
+                    errorRedirectUrl="http://weblogin.example.org/validation_error.html" />      
         <cookies secure="true" httpOnly="true" />
         <service name="cosign-www.example.org" />
-        <protected status="on" />
+        <protected status="off" />
       </cosign>
 
       ...
       
    </system.webServer>
+
 
 Each directory can also have a web.config file that overrides inherited configuration options:
 
@@ -87,7 +95,7 @@ Each directory can also have a web.config file that overrides inherited configur
 </configuration>
 
 
-Installation:
+== Installation ==
 
 Here are the command line options for adding and removing the cosign module.
 
@@ -106,7 +114,7 @@ The module can also be added from the IIS Manager interface.  Please note: the c
 is not designed to be loaded as a global module.
 
 
-Using the authentication data in an ASP script:
+== Using the authentication data in an ASP script ==
 
 COSIGN_FACTOR = <%=Request.ServerVariables("COSIGN_FACTOR")%><br />
 COSIGN_SERVICE =  <%=Request.ServerVariables("COSIGN_SERVICE")%><br />
@@ -114,7 +122,7 @@ REMOTE_REALM = <%=Request.ServerVariables("REMOTE_REALM")%><br />
 REMOTE_USER = <%=Request.ServerVariables("REMOTE_USER")%><br />
 
 
-Help:
+== Help ==
 
 http://weblogin.org/
 
