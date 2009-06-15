@@ -129,8 +129,17 @@ Cosign Validation
 
 
 The validation handler can also be added with the following command:
-
 appcmd set config /section:handlers /+[name='Cosign Validation',path='/cosign/valid*',verb='*',modules='Cosign']
+
+Also, turn cosign-protection off to prevent redirect loops:
+<location path="Default Web Site/cosign/valid">
+    <system.webServer>
+	    <cosign>
+            <protected status="off" />
+	    </cosign>
+    </system.webServer>
+</location>	
+
 
 
 == Using the authentication data in an ASP script ==
