@@ -94,7 +94,6 @@ Each directory can also have a web.config file that overrides inherited configur
     </system.webServer>
 </configuration>
 
-
 == Installation ==
 
 Here are the command line options for adding and removing the cosign module.
@@ -112,6 +111,26 @@ appcmd add module /name:"Cosign" /app.name:"Default Web Site/"
 
 The module can also be added from the IIS Manager interface.  Please note: the cosign module
 is not designed to be loaded as a global module.
+
+
+== Configure a Handler Mapping ==
+
+This can be done from within the IIS Manager under "Sites", "[name of your web site]", Handler Mappings, then select
+"Add Module Mapping...", and specify the following items:
+
+RequestPath:
+/cosign/valid*
+
+Module:
+Cosign
+
+Name:
+Cosign Validation
+
+
+The validation handler can also be added with the following command:
+
+appcmd set config /section:handlers /+[name='Cosign Validation',path='/cosign/valid*',verb='*',modules='Cosign']
 
 
 == Using the authentication data in an ASP script ==
