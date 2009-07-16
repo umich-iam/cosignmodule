@@ -41,5 +41,8 @@
       <attribute name="validReference" type="string" />
       <attribute name="errorRedirectUrl" type="string" />
     </element>
+    <element name="compatibilityMode">
+      <attribute name="mode" type="bool" />
+    </element>
   </sectionSchema>
 </configSchema>

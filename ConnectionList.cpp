@@ -110,7 +110,7 @@ ConnectionList::Init( std::wstring& s, int p, PCCERT_CONTEXT ctx, std::wstring& 
 
 void
 ConnectionList::Depopulate() {
-	for( int i = 0; i < connections.size(); i++ ) {
+	for( unsigned int i = 0; i < connections.size(); i++ ) {
 		delete connections[i];
 	}
 	numServers = 0;
@@ -179,7 +179,7 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 	COSIGNSTATUS	status = COSIGNRETRY;
 
 	CosignTrace1( L"connections.size() = %d", connections.size() );
-	for( int i = 0; i < connections.size() && status == COSIGNRETRY; i++ ) {
+	for( unsigned int i = 0; i < connections.size() && status == COSIGNRETRY; i++ ) {
 		curConnection = snet = connections[ i ];
 		CosignTrace1( L"CheckCookie iter %d", i );
 		if ( !snet->tlsStarted() ) {
@@ -269,7 +269,7 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		csi->user = authData[ 2 ];
 		csi->strFactors = csi->realm = authData[ 3 ];
 		csi->factors.push_back( authData[ 3 ] );
-		for ( int i = 4; i < authData.size(); i++ ) {
+		for ( unsigned int i = 4; i < authData.size(); i++ ) {
 			csi->strFactors += " " + authData[i];
 			csi->factors.push_back( authData[i] );
 		}

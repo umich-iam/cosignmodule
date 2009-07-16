@@ -55,6 +55,7 @@ private :
 	std::string	serviceName;
 	BOOL	cookiesSecure;
 	BOOL	cookiesHttpOnly;
+	BOOL	compatibilityMode;
 	std::vector<std::string>		factors;
 	std::string strFactors;
 	std::string validReference;

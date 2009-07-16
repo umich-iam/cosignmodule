@@ -552,6 +552,8 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	BSTR	bstrHttpOnly	= SysAllocString(L"httpOnly");
 	BSTR	bstrAdd			= SysAllocString(L"add");
 	BSTR	bstrFactor		= SysAllocString(L"factor");
+	BSTR	bstrCompatibilityMode		= SysAllocString(L"compatibilityMode");
+	BSTR	bstrMode		= SysAllocString(L"mode");
 	BSTR	bstrConfigPath;
 	IHttpApplication*	app	= NULL;
 	IAppHostElement*	ahe	= NULL;
@@ -670,8 +672,6 @@ CosignModule::GetConfig( IHttpContext* context ) {
 #endif
 
 
-	/// xxx does this take into account elements that are optional?
-	/// what will happen if we try to retrieve a value that hasn't been set?
 	hr = ahe->GetElementByName( bstrCookies, &ahe2 );
 	if ( FAILED(hr) ) {
 		CosignLog( L"Could not retrieve cosign <cookies> element" );
@@ -679,9 +679,21 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	}
 	GetPropertyValueByName( ahe2, &value, &bstrSecure, VT_BOOL );
 	cookiesSecure = V_BOOL(&value);
+	CosignLog( L"Setting <cookies secure> to %d", cookiesSecure );
 
 	GetPropertyValueByName( ahe2, &value, &bstrHttpOnly, VT_BOOL );
 	cookiesHttpOnly = V_BOOL(&value);
+	CosignLog( L"Setting <cookies httpOnly> to %d", cookiesHttpOnly );
+
+	hr = ahe->GetElementByName( bstrCompatibilityMode, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <compatibilityMode>" );
+		compatibilityMode = FALSE;
+	} else {
+		GetPropertyValueByName( ahe2, &value, &bstrMode, VT_BOOL );
+		compatibilityMode = V_BOOL(&value);
+		CosignLog( L"Setting <compatibility> mode to %d", compatibilityMode );
+	}
 
 	SysFreeString( bstrLoginUrl );
 	SysFreeString( bstrPostErrorRedirectUrl	);
@@ -696,7 +708,8 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	SysFreeString( bstrHttpOnly	);
 	SysFreeString( bstrAdd );
 	SysFreeString( bstrFactor );
-
+	SysFreeString( bstrCompatibilityMode );
+	SysFreeString( bstrMode );
 	return( retStatus );
 }
 
@@ -979,8 +992,8 @@ CosignModule::OnAuthenticateRequest(
 		CosignTrace1( "Found service cookie: \"%s\"\n", serviceCookie.c_str() );
 	}
 	
-	/// Step one, check local cache and see if cached cookie is < 120 seconds
-	/// If cached cookie < 120 seconds old, populate server variables with cached data and return.
+	// Step one, check local cache and see if cached cookie is < 120 seconds
+	// If cached cookie < 120 seconds old, populate server variables with cached data and return.
 
 	ck = serviceName + "=" + serviceCookie;
 	COSIGNSTATUS fileStatus = cdb->CheckCookie( serviceCookie, &csi );
@@ -988,46 +1001,9 @@ CosignModule::OnAuthenticateRequest(
 		CosignTrace0( L"Cookie DB logged in." );
 		goto convertUserData;
 	}
-	/// Step two, netcheck cookie
+	// Step two, netcheck cookie
 
-#ifdef __MOVING_NET_CHECK_COOKIE__
-	CosignTrace0( L"CHECKing cookie, waiting for mutex." );
-	///std::string	ck = serviceName + "=" + serviceCookie;
-	DWORD wfso = WaitForSingleObject( cl->mutex, INFINITE );
-	CosignTrace0( L"Obtained the mutex." );
-	if ( wfso != WAIT_OBJECT_0 ) {
-		if ( wfso == WAIT_FAILED ) {
-			///  pProvider->SetErrorStatus( GetLastError() );
-			CosignLog( L"Error waiting for connection list mutex: 0x%x", GetLastError() );
-		} else {
-			///  pProvider->SetErrorStatus( wfso );
-			CosignLog( L"Error waiting for connection list mutex: 0x%x", wfso );
-		}
-		return( RQ_NOTIFICATION_FINISH_REQUEST );
-	}
-	COSIGNSTATUS status = cl->CheckCookie( &ck, &csi, TRUE );
-	CosignTrace0( L"Cookie, user is logged in." );
-
-		/*
-		 * fileStatus == COSIGNOK means that the service cookie is not locally cached.
-		 * If this is the case, then assume that proxy cookies and kerberos tickets
-		 * have not yet been retrieved and get them now.
-		 */
-	if ( fileStatus == COSIGNOK && cl->getProxyCookies() ) {
-		cl->RetrieveProxyCookies( ck );
-	}	
-	if ( fileStatus == COSIGNOK && cl->getKerberosTickets() ) {
-		cl->RetrieveKerberosTicket();
-	}
-	if ( !ReleaseMutex( cl->mutex ) ) {
-		CosignLog( L"Error releasing connection list mutex: 0x%x", GetLastError() );
-		///  pProvider->SetErrorStatus( GetLastError() );
-		return( RQ_NOTIFICATION_FINISH_REQUEST );
-	}
-	CosignTrace0( L"Released the mutex." );
-#else
 	COSIGNSTATUS status = NetCheckCookie( ck,  csi, TRUE, fileStatus );
-#endif //__MOVING_NET_CHECK_COOKIE__
 
 	switch ( status ) {
 		case COSIGNLOGGEDIN:
@@ -1111,7 +1087,12 @@ convertUserData:
             CosignUser* cosignUser = new CosignUser( (PCWSTR)username );
             pProvider->SetUser(cosignUser);
         }
-
+		if ( compatibilityMode ) {
+			CosignLog( L"compatibilityMode is true so setting remote_user" );
+			hr = context->SetServerVariable( "HTTP_REMOTE_USER", username );
+		} else {
+			CosignLog( L"compatibilityMode is false so NOT setting remote_user" );
+		}
 	}
 
 	if ( !csi.realm.empty() ) {
