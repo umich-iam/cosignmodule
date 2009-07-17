@@ -750,6 +750,19 @@ CosignModule::RedirectToLoginServer(
 	context->GetServerVariable( "URL", &url, &urlSize );
 	CosignTrace1( "URL = %s", url );
 
+	PCSTR queryString = NULL;
+	DWORD queryStringSize = 0;
+	context->GetServerVariable( "QUERY_STRING", &queryString, &queryStringSize );
+	if ( queryStringSize > 0 ) {
+		queryString = (PCSTR)context->AllocateRequestMemory( queryStringSize + 1 );
+		if ( queryString == NULL ) {
+			CosignLog( L"Not enough memory to allocate for QUERY_STRING" );
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+		context->GetServerVariable( "QUERY_STRING", &queryString, &queryStringSize );
+		CosignTrace1( "QUERY_STRING", queryString );
+	}
+
 	DWORD serverNameSize = 0;
 	PCSTR serverName = NULL;
 	context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
@@ -766,6 +779,10 @@ CosignModule::RedirectToLoginServer(
 	destination += "://";
 	destination += serverName;
 	destination += url;
+	if ( queryStringSize > 0 ) {
+		destination += "?";
+		destination += queryString;
+	}
 
 	
 	std::string newLocation;

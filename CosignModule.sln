@@ -14,25 +14,16 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentat
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Win32 = Debug|Win32
-		Debug|x64 = Debug|x64
-		Release|Win32 = Release|Win32
-		Release|x64 = Release|x64
-		x64|Win32 = x64|Win32
-		x64|x64 = x64|x64
+		Debug|Windows = Debug|Windows
+		Release|Windows = Release|Windows
+		x64|Windows = x64|Windows
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|Win32.ActiveCfg = Debug|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|Win32.Build.0 = Debug|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|x64.ActiveCfg = Debug|x64
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|x64.Build.0 = Debug|x64
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Win32.ActiveCfg = Release|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Win32.Build.0 = Release|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|x64.ActiveCfg = Release|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|x64.Build.0 = Release|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|Win32.ActiveCfg = x64 Release|x64
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|x64.ActiveCfg = x64 Release|x64
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|x64.Build.0 = x64 Release|x64
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|Windows.ActiveCfg = Debug|Win32
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|Windows.Build.0 = Debug|Win32
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Windows.ActiveCfg = Release|Win32
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Windows.Build.0 = Release|Win32
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|Windows.ActiveCfg = x64 Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
