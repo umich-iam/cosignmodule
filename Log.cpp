@@ -10,6 +10,7 @@
 
 #define MSGCHARCOUNT 2048
 
+
 void
 CosignLog( wchar_t* format, ... ) {
 	va_list	args;

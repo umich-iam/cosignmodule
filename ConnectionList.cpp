@@ -18,7 +18,7 @@
 #include "StringToWString.h"
 #include "Log.h"
 
-
+/*
 inline PCCERT_CONTEXT
 GetCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 
@@ -40,20 +40,19 @@ GetCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 			CERT_FIND_ANY,
 			NULL,
 			prevCtx )) != NULL ) {
-		if ( CertGetNameString( ctx, CERT_NAME_ATTR_TYPE, 0, szOID_COMMON_NAME, pszNameString, 1024 ) == 1 ) {
-			throw( CosignError( GetLastError(), __LINE__ -1, __FUNCTION__ ) );
-		}
-		if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
-			// Success happens here
-			CosignTrace0( L"Found matching certificate!\n" );
-			return( ctx );
+		if ( CertGetNameString( ctx, CERT_NAME_ATTR_TYPE, 0, szOID_COMMON_NAME, pszNameString, 1024 ) > 1 ) {
+			if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
+				// Success happens here
+				CosignTrace0( L"Found matching certificate!\n" );
+				return( ctx );
+			}
 		}
 		prevCtx = ctx;
 	}
 	CosignLog( L"Could not find matching certificate for CN %s.\n", cn.c_str() );
 	return( NULL );
 }
-
+*/
 bool
 ConnectionList::getProxyCookies() {
 		CosignLog( L"proxyCookiesDirectory is set to", proxyCookiesDirectory.c_str() );
@@ -207,7 +206,7 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 			}
 			CosignTrace1( "<< %s\n", snet->data.c_str() );
 		}
-
+		
 		out = "CHECK " + *cookie + "\r\n";
 		CosignTrace1( ">> %s", out.c_str() );
 		if ( snet->write( out ) == -1 ) {

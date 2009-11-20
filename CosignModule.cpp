@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 2008 Regents of The University of Michigan.
  * All Rights Reserved.  See COPYRIGHT.
  */
@@ -69,12 +69,11 @@ RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 			CERT_FIND_ANY,
 			NULL,
 			prevCtx )) != NULL ) {
-		if ( CertGetNameString( ctx, CERT_NAME_ATTR_TYPE, 0, szOID_COMMON_NAME, pszNameString, 1024 ) == 1 ) {
-			throw( CosignError( GetLastError(), __LINE__ -1, __FUNCTION__ ) );
-		}
-		if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
-			CosignLog( L"Found matching certificate!\n" );
-			return( ctx );
+		if ( CertGetNameString( ctx, CERT_NAME_ATTR_TYPE, 0, szOID_COMMON_NAME, pszNameString, 1024 ) > 1 ) {
+			if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
+				CosignLog( L"Found matching certificate!\n" );
+				return( ctx );
+			}
 		}
 		prevCtx = ctx;
 	}
@@ -501,6 +500,7 @@ CosignModule::GetValidationConfig( IHttpContext* context ) {
 
 	GetPropertyValueByName( ahe2, &value, &bstrHttpOnly, VT_BOOL );
 	cookiesHttpOnly = V_BOOL(&value);
+
 
 	SysFreeString( bstrLoginUrl );
 	SysFreeString( bstrPostErrorRedirectUrl	);
@@ -1212,7 +1212,6 @@ CosignModule::CosignModule( IAppHostAdminManager** aham, ConnectionList* cl, Coo
 	this->cl = cl;
 	this->cdb = cdb;
 	eventLog = RegisterEventSource( NULL, L"IISADMIN" );
-	Log( L"Instantiated CosignModule" );
 	cg = new CookieGenerator();
 	
 	loginUrl = "";
@@ -1253,11 +1252,12 @@ CosignModuleFactory::GetHttpModule(
 	return S_OK;
 }
 
-CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham ) {
+CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham, IHttpTraceContext** htc ) {
 	/// Should initialize stuff be done here or in RegisterModule?
 	/// stuff to be initialized: reading config file, sockets,
 	/// something that notices when the configuration file changes
 	this->aham = *aham;
+	this->htc = *htc;
 	OutputDebugString( L"CosignModuleFactory constructed." );
 }
 
@@ -1283,11 +1283,34 @@ CosignModuleFactory::Init() {
 	IAppHostElement*	ahe2	= NULL;
 	IAppHostProperty*	ahp		= NULL;
 	VARIANT				value;
+	std::wstring		reason;
 
 	try {
+		CosignLog( "Initializing CosignModule version %s", VERSION.c_str() );
 		hr = aham->GetAdminSection( bstrSection, bstrConfigPath, &ahe );
 		if ( FAILED(hr) ) {
-			CosignLog( L"Could not get cosign admin section. %s, %s", bstrSection, bstrConfigPath );
+			switch( hr ) {
+				case S_OK:
+					reason = L"S_OK: Indicates that the operation was successful.";
+					break;
+				case ERROR_INVALID_DATA:
+					reason = L"ERROR_INVALID_DATA: Indicates that the data is invalid.";
+					break;
+ 
+				case ERROR_FILE_NOT_FOUND:
+					reason = L"ERROR_FILE_NOT_FOUND: Indicates that the requested path was not found.";
+					break;
+				case ERROR_INVALID_PARAMETER:
+					reason = L"ERROR_INVALID_PARAMETER: Indicates that a parameter is incorrect.";
+					break;
+				case E_ACCESSDENIED:
+					reason = L"E_ACCESSDENIED: Indicates that the operation was not successful because of access restrictions.";
+					break;
+				default:
+					reason = L"Unknown error.";
+					break;
+			}
+			CosignLog( L"Could not get cosign admin section. %s, %s.  reason: %s", bstrSection, bstrConfigPath, reason.c_str() );
 			throw( CosignError( hr, __LINE__ -2, __FILE__ ) );
 		}
 		GetElement( ahe, &bstrWebloginServer, &ahe2 );

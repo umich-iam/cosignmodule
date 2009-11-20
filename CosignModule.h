@@ -18,6 +18,8 @@
 #include "snetpp.h"
 */
 
+static std::string VERSION = "3.0.1 beta";
+
 enum PROTECTEDSTATUS {  cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
 
 
@@ -85,6 +87,7 @@ public:
 	DWORD Init();
 private:
 	IAppHostAdminManager* aham;
+	IHttpTraceContext* htc;
 	CosignSettings	config;
 	Snet			snet;
 	HCERTSTORE		certificateStore;
