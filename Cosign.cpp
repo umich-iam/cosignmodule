@@ -44,8 +44,7 @@ RegisterModule(
 	
 
 	IAppHostAdminManager *aham = server->GetAdminManager();
-	IHttpTraceContext	*atc = server->GetTraceContext();
-	cmf = new CosignModuleFactory( &aham, &atc );
+	cmf = new CosignModuleFactory( &aham );
 	if ( !cmf ) {
 		return( HRESULT_FROM_WIN32( ERROR_NOT_ENOUGH_MEMORY ) );
 	}

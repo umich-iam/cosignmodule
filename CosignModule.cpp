@@ -1252,12 +1252,11 @@ CosignModuleFactory::GetHttpModule(
 	return S_OK;
 }
 
-CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham, IHttpTraceContext** htc ) {
+CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham ) {
 	/// Should initialize stuff be done here or in RegisterModule?
 	/// stuff to be initialized: reading config file, sockets,
 	/// something that notices when the configuration file changes
 	this->aham = *aham;
-	this->htc = *htc;
 	OutputDebugString( L"CosignModuleFactory constructed." );
 }
 
