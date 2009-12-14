@@ -6,13 +6,16 @@
 #include <windows.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string>
 #include "Log.h"
 
 #define MSGCHARCOUNT 2048
+//#define __ENABLE_LOGGING_
 
 
 void
 CosignLog( wchar_t* format, ... ) {
+#ifdef __ENABLE_LOGGING_
 	va_list	args;
 	wchar_t	msg[ MSGCHARCOUNT ];
 	size_t	msgSize = (sizeof(msg)) / (sizeof(wchar_t));
@@ -23,14 +26,19 @@ CosignLog( wchar_t* format, ... ) {
 	va_end(args);
 
 	if ( result < 0 ) {
-		OutputDebugStringW( L"An error occurred while logging");
+		OutputDebugStringW( L"[CosignModule] An error occurred while logging");
 		return;
 	}
-	OutputDebugStringW( msg );
+	std::wstring	wmsg;
+	wmsg = L"[CosignModule] ";
+	wmsg += msg;
+	OutputDebugStringW( wmsg.c_str() );
+#endif
 }
 
 void
 CosignLog( char* format, ... ) {
+#ifdef __ENABLE_LOGGING_
 	va_list	args;
 	char	msg[ MSGCHARCOUNT ];
 	size_t	msgSize = (sizeof(msg)) / (sizeof(wchar_t));
@@ -41,8 +49,12 @@ CosignLog( char* format, ... ) {
 	va_end(args);
 
 	if ( result < 0 ) {
-		OutputDebugStringA( "An error occurred while logging");
+		OutputDebugStringA( "[CosignModule] An error occurred while logging");
 		return;
 	}
-	OutputDebugStringA( msg );
+	std::string amsg;
+	amsg = "[CosignModule] ";
+	amsg += msg;
+	OutputDebugStringA( amsg.c_str() );
+#endif
 }

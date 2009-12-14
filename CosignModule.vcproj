@@ -178,8 +178,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)bin"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
@@ -202,7 +202,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;COSIGNMODULE_EXPORTS"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"
@@ -221,6 +221,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="bcrypt.lib comsuppw.lib ws2_32.lib crypt32.lib secur32.lib"
+				OutputFile="$(OutDir)\$(ProjectName).dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="Cosign.def"
 				GenerateDebugInformation="true"
@@ -282,7 +283,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;COSIGNMODULE_EXPORTS"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="false"

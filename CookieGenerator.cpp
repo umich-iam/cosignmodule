@@ -7,6 +7,7 @@
 #include <bcrypt.h>
 #include "fbase64.h"
 #include "CookieGenerator.h"
+#include "Log.h"
 
 
 CookieGenerator::CookieGenerator() {
@@ -25,7 +26,7 @@ DWORD CookieGenerator::MakeCookie( char* cookie, int length ) {
 
 	/// XXX Need sanity checking to make sure buffers are large enough!
 
-	OutputDebugString( L"Making a cookie" );
+	CosignLog( L"Making a cookie" );
 	if ( algorithm == NULL ) {
 		/// Should actually throw something
 		return( -1 );
@@ -37,10 +38,10 @@ DWORD CookieGenerator::MakeCookie( char* cookie, int length ) {
 	length-=3;
 	bufSize = SZ_FBASE64_D( length );
 
-	OutputDebugString( L"Randomly generating stuff" );
+	CosignLog( L"Randomly generating stuff" );
 	/*status = */BCryptGenRandom( algorithm, buf, bufSize, 0 );
 
-	OutputDebugString( L"Making cookie into fbase64" );
+	CosignLog( L"Making cookie into fbase64" );
 	fbase64_e( buf, bufSize, cookie );
 
 	return( 0 );

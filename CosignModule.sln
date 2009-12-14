@@ -21,8 +21,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|Windows.ActiveCfg = Debug|Win32
 		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Debug|Windows.Build.0 = Debug|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Windows.ActiveCfg = Release|Win32
-		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Windows.Build.0 = Release|Win32
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Windows.ActiveCfg = Release|x64
+		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.Release|Windows.Build.0 = Release|x64
 		{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}.x64|Windows.ActiveCfg = x64 Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution

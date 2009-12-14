@@ -20,7 +20,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <boost/regex.hpp>
+#include <regex>
 
 #include "fbase64.h"
 #include "CookieGenerator.h"
@@ -963,18 +963,18 @@ CosignModule::OnAuthenticateRequest(
 		protectedStatus = GetConfig( context );
 		switch( protectedStatus ) {
 		case cosignUnprotected: //unprotected
-			OutputDebugString( L"unprotected url" );
+			CosignTrace0( L"unprotected url" );
 			return( RQ_NOTIFICATION_CONTINUE );
 		case cosignProtected: //protected
-			OutputDebugString( L"protected url" );
+			CosignTrace0( L"protected url" );
 			break;
 		case cosignAllowPublicAccess: //allowPublicAccess
 			//carry on
-			OutputDebugString( L"allowPublicAccess url" );
+			CosignTrace0( L"allowPublicAccess url" );
 			break;
 		default:
 			/// xxx set some sort of error
-			OutputDebugString( L"GetConfig failed." );
+			CosignTrace0( L"GetConfig failed." );
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 		}
 	} catch ( CosignError ce ) {
@@ -983,7 +983,7 @@ CosignModule::OnAuthenticateRequest(
 		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 
-	OutputDebugString( L"Done getting config, get/setting cookie" );
+	CosignTrace0( L"Done getting config, get/setting cookie" );
 	pcstrCookie = request->GetHeader( "Cookie", &cookieSize );
 	if ( cookieSize == 0 || pcstrCookie == NULL ) {
 		if ( protectedStatus == cosignAllowPublicAccess ) {
@@ -1218,7 +1218,7 @@ CosignModule::CosignModule( IAppHostAdminManager** aham, ConnectionList* cl, Coo
 	serviceName = "";
 	cookiesSecure = TRUE;
 	cookiesHttpOnly = FALSE;
-	OutputDebugString( L"CosignModule created." );
+	CosignTrace0( L"CosignModule created." );
 }
 
 CosignModule::~CosignModule() {
@@ -1230,7 +1230,7 @@ CosignModule::~CosignModule() {
 	if ( cg ) {
 		delete cg;
 	}
-	OutputDebugString( L"CosignModule destructed." );
+	CosignTrace0( L"CosignModule destructed." );
 }
 
 HRESULT
@@ -1257,7 +1257,7 @@ CosignModuleFactory::CosignModuleFactory( IAppHostAdminManager** aham ) {
 	/// stuff to be initialized: reading config file, sockets,
 	/// something that notices when the configuration file changes
 	this->aham = *aham;
-	OutputDebugString( L"CosignModuleFactory constructed." );
+	CosignTrace0( L"CosignModuleFactory constructed." );
 }
 
 DWORD
@@ -1397,7 +1397,7 @@ CosignModuleFactory::Terminate() {
 
 	cl.Depopulate();
 	WSACleanup();
-	OutputDebugString( L"CosignModuleFactory terminated." );
+	CosignTrace0( L"CosignModuleFactory terminated." );
 	delete this;
 }
 
@@ -1429,8 +1429,9 @@ CosignModule::OnExecuteRequestHandler(
 	// Validate URL
 	CosignLog( "Regex is %s", this->validReference.c_str() );
 	//boost::regex	pattern( this->validReference );
-	boost::regex	pattern( this->validReference.c_str() );
-	if ( !boost::regex_match( destination, pattern ) ) {
+	//boost::regex	pattern( this->validReference.c_str() );
+	std::tr1::regex pattern( this->validReference.c_str() );
+	if ( !std::tr1::regex_match( destination, pattern ) ) {
 		CosignLog( "Your destination of %s doesn't match %s", destination.c_str(), this->validReference.c_str() );
 	} else {
 		CosignLog( "Your destination of %s totally matches %s", destination.c_str(), this->validReference.c_str() );
