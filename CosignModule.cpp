@@ -737,7 +737,18 @@ CosignModule::RedirectToLoginServer(
 	}
 
 	/// xxx Note: Should also check SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
-
+	PCSTR	port =  NULL;
+	DWORD	portSize = 0;
+	context->GetServerVariable( "SERVER_PORT", &port, &portSize );
+	port = (PCSTR)context->AllocateRequestMemory( portSize + 1 );
+	if ( port == NULL ) {
+		CosignLog( "Not enough memory to allocate for SERVER_PORT" );
+		/// xxx set an error
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+	context->GetServerVariable( "SERVER_PORT", &port, &portSize );
+	CosignTrace1( "SERVER_PORT = %s", port );
+	
 	PCSTR	url = NULL;
 	DWORD	urlSize = 0;
 	context->GetServerVariable( "URL", &url, &urlSize );
@@ -778,6 +789,15 @@ CosignModule::RedirectToLoginServer(
 	std::string destination = protocol;
 	destination += "://";
 	destination += serverName;
+
+	int portNumber = atoi( port );
+	CosignTrace1( "portNumber = %d", portNumber );
+	if (portNumber != 443 && portNumber != 80 ) {
+		destination += ":";
+		destination += port;
+	}
+	
+	
 	destination += url;
 	if ( queryStringSize > 0 ) {
 		destination += "?";
@@ -848,7 +868,7 @@ CosignModule::SetCookieAndRedirect(
 		strcpy_s( protocol, sizeof protocol, "http" );
 	}
 
-	/// xxx Note: Should also check SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
+	/// xxx Note: Should also check  SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
 
 	DWORD serverNameSize = 0;
 	PCSTR serverName = NULL;
@@ -1432,12 +1452,11 @@ CosignModule::OnExecuteRequestHandler(
 	//boost::regex	pattern( this->validReference.c_str() );
 	std::tr1::regex pattern( this->validReference.c_str() );
 	if ( !std::tr1::regex_match( destination, pattern ) ) {
-		CosignLog( "Your destination of %s doesn't match %s", destination.c_str(), this->validReference.c_str() );
-	} else {
-		CosignLog( "Your destination of %s totally matches %s", destination.c_str(), this->validReference.c_str() );
+		CosignLog( "Destination of %s doesn't match %s", destination.c_str(), this->validReference.c_str() );
+		IHttpResponse*	response = context->GetResponse();
+		response->Redirect( this->validationErrorRedirect.c_str(), TRUE, FALSE );
+		return( RQ_NOTIFICATION_FINISH_REQUEST );		
 	}
-	
-
 
 	// CHECK service cookie
 	CosignLog( "CHECK'ing cookie" );
@@ -1445,10 +1464,6 @@ CosignModule::OnExecuteRequestHandler(
 
 	serviceCookie = serviceName + "=" + serviceCookie;
 	COSIGNSTATUS status = NetCheckCookie( serviceCookie, csi, FALSE );
-
-	CosignLog( "All done with that!" );
-
-
 
 	IHttpResponse* response = context->GetResponse();
 

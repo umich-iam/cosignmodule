@@ -7,7 +7,7 @@ Generate an SSL certificate and have it signed, if needed:
 http://technet.microsoft.com/en-us/library/cc732906(WS.10).aspx
 
 
-IIS_USRS (or the process IIS runs as) needs Full Control and Read permissions in the following Registry key:
+IIS_USRS (or the account or group IIS runs as) needs Full Control and Read permissions in the following Registry key:
 	HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates\MY	
 
 (Note: unlike the IIS 6 version of the cosign filter, there is no need to export or generate a key/cert pair
@@ -32,7 +32,7 @@ Give IIS_IUSRS permission from within certificate manager.
 Create a folder for the service cookie cache:
 	md C:\inetpub\temp\Cosign Cookie DB
 
-Permissions: IIS_IUSERS, full control
+Permissions: IIS_IUSRS, full control
 
 
 == Install any necessary Certificate authority files ==

@@ -10,7 +10,7 @@
 #include "Log.h"
 
 #define MSGCHARCOUNT 2048
-//#define __ENABLE_LOGGING_
+#define __ENABLE_LOGGING_
 
 
 void
@@ -22,7 +22,7 @@ CosignLog( wchar_t* format, ... ) {
 	int		result;
 
 	va_start(args, format);
-	result = vswprintf( msg, msgSize, format, args );
+	result = vswprintf_s( msg, msgSize, format, args );
 	va_end(args);
 
 	if ( result < 0 ) {
