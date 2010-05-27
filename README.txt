@@ -149,7 +149,13 @@ COSIGN_SERVICE =  <%=Request.ServerVariables("COSIGN_SERVICE")%><br />
 REMOTE_REALM = <%=Request.ServerVariables("REMOTE_REALM")%><br />
 REMOTE_USER = <%=Request.ServerVariables("REMOTE_USER")%><br />
 
+NOTE: Running an application pool in "classic mode" may result in the server variables not being available to ASP scripts.  There is a compatibilityMode
+option to correct this.  You can add it to the <cosign> section of your config file.
 
+<cosign>
+...
+    <compatibilityMode mode="true" />
+</cosign>
 == Help ==
 
 http://weblogin.org/
