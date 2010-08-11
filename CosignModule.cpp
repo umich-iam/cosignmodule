@@ -20,6 +20,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <tuple>
 #include <regex>
 
 #include "fbase64.h"
@@ -552,6 +553,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	BSTR	bstrHttpOnly	= SysAllocString(L"httpOnly");
 	BSTR	bstrAdd			= SysAllocString(L"add");
 	BSTR	bstrFactor		= SysAllocString(L"factor");
+	BSTR	bstrIgnoreSuffix= SysAllocString(L"ignoreSuffix");
 	BSTR	bstrCompatibilityMode		= SysAllocString(L"compatibilityMode");
 	BSTR	bstrMode		= SysAllocString(L"mode");
 	BSTR	bstrConfigPath;
@@ -653,17 +655,28 @@ CosignModule::GetConfig( IHttpContext* context ) {
 			CosignLog( L"Could not get collection." );
 			throw( CosignError( hr, __LINE__ - 3, __FILE__ ) );
 		}
+
 		GetPropertyValueByName( collElem, &value, &bstrFactor, VT_BSTR );
-		CosignTrace2( L"Got %s = %s", bstrFactor, value.bstrVal );
 		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
-		if ( strFactors == "" ) {
-			strFactors += strValue;
+		if ( strlen( strValue ) > 0 ) {
+			CosignTrace2( L"Got %s = %s", bstrFactor, value.bstrVal );
+			if ( strFactors == "" ) {
+				strFactors += strValue;
+			} else {
+				strFactors += ",";
+				strFactors += strValue;
+			}
+			factors.push_back( strValue );
+			delete strValue;
 		} else {
-			strFactors += ",";
-			strFactors += strValue;
+			GetPropertyValueByName( collElem, &value, &bstrIgnoreSuffix, VT_BSTR );
+			strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+			if ( strlen( strValue ) > 0 ) {
+				CosignTrace2( L"Got %s = %s", bstrIgnoreSuffix, value.bstrVal );
+				suffixes.push_back( strValue );
+				delete strValue;
+			}
 		}
-		factors.push_back( strValue );
-		delete strValue;
 	}
 #ifdef COSIGNTRACE
 	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
@@ -708,6 +721,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	SysFreeString( bstrHttpOnly	);
 	SysFreeString( bstrAdd );
 	SysFreeString( bstrFactor );
+	SysFreeString( bstrIgnoreSuffix );
 	SysFreeString( bstrCompatibilityMode );
 	SysFreeString( bstrMode );
 	return( retStatus );
@@ -1069,9 +1083,24 @@ CosignModule::OnAuthenticateRequest(
 			CosignLog( L"CheckCookie returned unknown value" );
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
+	// Strip suffixes, if enabled
+	if ( suffixes.size() > 0 ) {
+		for ( std::vector<std::string>::iterator factor = csi.factors.begin(); factor != csi.factors.end(); factor++ ) {
+			for ( std::vector<std::string>::iterator suff = suffixes.begin(); suff != suffixes.end(); suff++ ) {
+				if ( suff->length() < factor->length() ) {
+					if ( factor->compare( factor->length() - suff->length(), suff->length(), *suff) == 0 ) {
+						OutputDebugString( L"Matching suffix!" );
+						factor->erase( factor->length() - suff->length(), suff->length() );
+						CosignTrace1( L"Changed factor to %s", factor );
+					}
+				}
+			}
+		}
+	}
 	// Check factors
 	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
 		if ( std::find( csi.factors.begin(), csi.factors.end(), *iter ) == csi.factors.end() ) {
+			///////////////////////////////////////
 			// factor not found
 			if ( protectedStatus == cosignAllowPublicAccess ) {
 				goto convertUserData;
@@ -1159,6 +1188,9 @@ convertUserData:
 	return( RQ_NOTIFICATION_CONTINUE );
 }
 
+bool hasSuffix (){
+	return true;
+}
 COSIGNSTATUS
 CosignModule::NetCheckCookie( std::string& cookie, CosignServiceInfo& csi, BOOL retrieve, COSIGNSTATUS fileStatus = COSIGNLOGGEDOUT )
 {
@@ -1445,11 +1477,9 @@ CosignModule::OnExecuteRequestHandler(
 	// Get configuration data for validation URL and postErrorRedirectUrl
 	this->validReference = "blargh";
 	GetValidationConfig( context );
-	//GetConfig( context );
+
 	// Validate URL
 	CosignLog( "Regex is %s", this->validReference.c_str() );
-	//boost::regex	pattern( this->validReference );
-	//boost::regex	pattern( this->validReference.c_str() );
 	std::tr1::regex pattern( this->validReference.c_str() );
 	if ( !std::tr1::regex_match( destination, pattern ) ) {
 		CosignLog( "Destination of %s doesn't match %s", destination.c_str(), this->validReference.c_str() );
@@ -1475,8 +1505,6 @@ CosignModule::OnExecuteRequestHandler(
 	if ( response->SetHeader( "Set-Cookie", cookieHeader.c_str(), (USHORT)cookieHeader.length() + 1, TRUE ) != S_OK ) {
 		CosignLog( L"Error setting cookie header" );
 	}
-
-
 
 	response->Redirect( destination.c_str(), TRUE, FALSE );
     return( RQ_NOTIFICATION_FINISH_REQUEST );

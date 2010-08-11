@@ -1,8 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CosignModule", "CosignModule.vcproj", "{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}"
-EndProject
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentation", "{41CAB066-1D3F-4FC4-9F2D-D6F410103DCE}"
 	ProjectSection(SolutionItems) = preProject
 		bin\arcm.bat = bin\arcm.bat
@@ -11,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentat
 		Notes.txt = Notes.txt
 		README.txt = README.txt
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CosignModule", "CosignModule.vcxproj", "{41DFA73D-5E23-4DC9-91FF-0FC3FE00EFCD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

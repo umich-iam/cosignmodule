@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <iterator>
 #include <windows.h>
 #include "Snetpp.h"
 #include "CosignServiceInfo.h"
@@ -18,41 +19,6 @@
 #include "StringToWString.h"
 #include "Log.h"
 
-/*
-inline PCCERT_CONTEXT
-GetCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
-
-	PCCERT_CONTEXT	ctx = NULL;
-	PCCERT_CONTEXT	prevCtx = NULL;
-	WCHAR	pszNameString[ 1024 ];
-
-	if ( (cs = CertOpenStore( CERT_STORE_PROV_SYSTEM,
-		PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
-		NULL,
-		CERT_SYSTEM_STORE_LOCAL_MACHINE, L"MY")) == NULL ) {
-		throw( CosignError( GetLastError(), __LINE__ - 1, __FUNCTION__ ) );
-	}
-	while ( (ctx =
-		CertFindCertificateInStore(
-			cs, 
-			PKCS_7_ASN_ENCODING | X509_ASN_ENCODING, 
-			0, 
-			CERT_FIND_ANY,
-			NULL,
-			prevCtx )) != NULL ) {
-		if ( CertGetNameString( ctx, CERT_NAME_ATTR_TYPE, 0, szOID_COMMON_NAME, pszNameString, 1024 ) > 1 ) {
-			if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
-				// Success happens here
-				CosignTrace0( L"Found matching certificate!\n" );
-				return( ctx );
-			}
-		}
-		prevCtx = ctx;
-	}
-	CosignLog( L"Could not find matching certificate for CN %s.\n", cn.c_str() );
-	return( NULL );
-}
-*/
 bool
 ConnectionList::getProxyCookies() {
 		CosignLog( L"proxyCookiesDirectory is set to", proxyCookiesDirectory.c_str() );
@@ -159,7 +125,6 @@ ConnectionList::Populate() {
 		CosignTrace1( "<< %s", snet->data.c_str() );
 		Add( snet );
 	}
-	this->server = server;
 }
 
 void

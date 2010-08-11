@@ -28,6 +28,7 @@
       <attribute name="name" type="string" />
       <collection addElement="add">
         <attribute name="factor" type="string" />
+        <attribute name="ignoreSuffix" type="string" />
       </collection>
     </element>
     <element name="protected">

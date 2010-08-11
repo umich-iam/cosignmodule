@@ -94,6 +94,40 @@ Each directory can also have a web.config file that overrides inherited configur
     </system.webServer>
 </configuration>
 
+
+== Factors Configuration ==
+
+If your server needs to configure specific authentication factors, you'll need
+to add some items to the <service> tag.
+
+<service name="cosign-www.example.org" />
+	<add factor="rsatoken" />
+</service>
+
+If you need to enable the optional ignore suffix, it will look like this:
+
+<service name="cosign-www.example.org" />
+	<add factor="rsatoken" />
+	<add ignoreSuffix="-magic" />
+</service>
+
+Note that the "factor" items must all be satisfied, the "ignoreSuffix" will be
+matched to any factor. For example, this configuration...
+
+<service name="cosign-www.example.org" />
+	<add factor="rsatoken" />
+	<add factor="kerberos" />
+	<add ignoreSuffix="-magic" />
+</service>
+
+... will match the following factor combinations:
+
+rsatoken kerberos
+rsatoken-magic kerberos-magic
+rsatoken-magic kerberos
+rsatoken kerberos-magic
+
+
 == Installation ==
 
 Here are the command line options for adding and removing the cosign module.

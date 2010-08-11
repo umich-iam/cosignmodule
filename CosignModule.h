@@ -18,7 +18,7 @@
 #include "snetpp.h"
 */
 
-static std::string VERSION = "3.0.3 beta 2";
+static std::string VERSION = "3.0.3";
 
 enum PROTECTEDSTATUS {  cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
 
@@ -42,8 +42,6 @@ public :
 	CosignModule( IAppHostAdminManager** aham, ConnectionList* cl, CookieDatabase* cdb );
 	~CosignModule();
 
-
-
 private :
 
 	HANDLE	eventLog;
@@ -62,6 +60,7 @@ private :
 	BOOL	compatibilityMode;
 	std::vector<std::string>		factors;
 	std::string strFactors;
+	std::vector<std::string>		suffixes;
 	std::string validReference;
 	std::string validationErrorRedirect;
 

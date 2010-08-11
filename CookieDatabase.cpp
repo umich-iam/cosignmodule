@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <iterator>
 #include "Log.h"
 #include "CosignServiceInfo.h"
 #include "CookieDatabase.h"
@@ -306,6 +307,7 @@ CookieDatabase::StoreCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 			CloseHandle( hcf );
 		}
 	}
+	CloseHandle( hcf );
 	
 	return( status );
 }
