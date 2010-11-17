@@ -18,9 +18,9 @@
 #include "snetpp.h"
 */
 
-static std::string VERSION = "3.0.3";
+static std::string VERSION = "3.0.4 beta 6";
 
-enum PROTECTEDSTATUS {  cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
+enum PROTECTEDSTATUS { cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
 
 
 class CosignModule : public CHttpModule {
@@ -53,11 +53,13 @@ private :
 	//Configuration data
 	IAppHostAdminManager* aham;
 	std::string	loginUrl;
+	std::string	siteEntry;
 	std::string postErrorRedirectUrl;
 	std::string	serviceName;
 	BOOL	cookiesSecure;
 	BOOL	cookiesHttpOnly;
 	BOOL	compatibilityMode;
+	BOOL	CosignNoAppendRedirectPort;
 	std::vector<std::string>		factors;
 	std::string strFactors;
 	std::vector<std::string>		suffixes;

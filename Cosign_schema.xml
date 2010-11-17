@@ -31,6 +31,9 @@
         <attribute name="ignoreSuffix" type="string" />
       </collection>
     </element>
+    <element name="siteEntry">
+      <attribute name="url" type="string" />
+    </element>
     <element name="protected">
       <attribute name="status" type="enum">
         <enum name="off" value="0" />
@@ -43,6 +46,9 @@
       <attribute name="errorRedirectUrl" type="string" />
     </element>
     <element name="compatibilityMode">
+      <attribute name="mode" type="bool" />
+    </element>
+    <element name="CosignNoAppendRedirectPort">
       <attribute name="mode" type="bool" />
     </element>
   </sectionSchema>

@@ -346,6 +346,8 @@ CosignModule::GetValidationConfig( IHttpContext* context ) {
 	BSTR	bstrLoginUrl			= SysAllocString(L"loginUrl");
 	BSTR	bstrPostErrorRedirectUrl= SysAllocString(L"postErrorRedirectUrl");
 	BSTR	bstrWebloginServer		= SysAllocString(L"webloginServer" );
+	BSTR	bstrSiteEntry	= SysAllocString(L"siteEntry");
+	BSTR	bstrSiteEntryURL		= SysAllocString(L"url");
 	BSTR	bstrCookies		= SysAllocString(L"cookies");
 	BSTR	bstrSecure		= SysAllocString(L"secure");
 	BSTR	bstrHttpOnly	= SysAllocString(L"httpOnly");
@@ -432,6 +434,14 @@ CosignModule::GetValidationConfig( IHttpContext* context ) {
 	postErrorRedirectUrl = strValue;
 	delete strValue;
 
+	hr = ahe->GetElementByName( bstrSiteEntry, &ahe2 );
+	if ( hr == S_OK ) {
+		GetPropertyValueByName( ahe2, &value, &bstrSiteEntryURL, VT_BSTR );
+		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+		this->siteEntry = strValue;
+		delete strValue;
+	}
+
 	hr = ahe->GetElementByName( bstrService, &ahe2 );
 	if ( FAILED(hr) || ahe2 == NULL ) {
 		OutputDebugString( L"GetElementByName(\"service\") failed." );
@@ -504,6 +514,8 @@ CosignModule::GetValidationConfig( IHttpContext* context ) {
 
 
 	SysFreeString( bstrLoginUrl );
+	SysFreeString( bstrSiteEntry );
+	SysFreeString( bstrSiteEntryURL );
 	SysFreeString( bstrPostErrorRedirectUrl	);
 	SysFreeString( bstrSection );
 	SysFreeString( bstrService );
@@ -546,6 +558,8 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	BSTR    bstrProtected	= SysAllocString( L"protected" );
 	BSTR	bstrStatus		= SysAllocString( L"status" );
 	BSTR	bstrLoginUrl			= SysAllocString(L"loginUrl");
+	BSTR	bstrSiteEntry	= SysAllocString(L"siteEntry");
+	BSTR	bstrSiteEntryURL		= SysAllocString(L"url");
 	BSTR	bstrPostErrorRedirectUrl= SysAllocString(L"postErrorRedirectUrl");
 	BSTR	bstrWebloginServer		= SysAllocString(L"webloginServer" );
 	BSTR	bstrCookies		= SysAllocString(L"cookies");
@@ -555,6 +569,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	BSTR	bstrFactor		= SysAllocString(L"factor");
 	BSTR	bstrIgnoreSuffix= SysAllocString(L"ignoreSuffix");
 	BSTR	bstrCompatibilityMode		= SysAllocString(L"compatibilityMode");
+	BSTR	bstrCosignNoAppendRedirectPort		=SysAllocString(L"CosignNoAppendRedirectPort");
 	BSTR	bstrMode		= SysAllocString(L"mode");
 	BSTR	bstrConfigPath;
 	IHttpApplication*	app	= NULL;
@@ -616,6 +631,17 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	strValue = _com_util::ConvertBSTRToString( value.bstrVal );
 	postErrorRedirectUrl = strValue;
 	delete strValue;
+
+	hr = ahe->GetElementByName( bstrSiteEntry, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <siteEntry> element" );
+		this->siteEntry = "";
+	} else {
+		GetPropertyValueByName( ahe2, &value, &bstrSiteEntryURL, VT_BSTR );
+		strValue = _com_util::ConvertBSTRToString( value.bstrVal );
+		this->siteEntry = strValue;
+		delete strValue;
+	}
 
 	hr = ahe->GetElementByName( bstrService, &ahe2 );
 	if ( FAILED(hr) || ahe2 == NULL ) {
@@ -708,7 +734,19 @@ CosignModule::GetConfig( IHttpContext* context ) {
 		CosignLog( L"Setting <compatibility> mode to %d", compatibilityMode );
 	}
 
+	hr = ahe->GetElementByName( bstrCosignNoAppendRedirectPort, &ahe2 );
+	if ( FAILED(hr) ) {
+		CosignLog( L"Could not retrieve cosign <CosignNoAppendRedirectPort>" );
+		CosignNoAppendRedirectPort = FALSE;
+	} else {
+		GetPropertyValueByName( ahe2, &value, &bstrMode, VT_BOOL );
+		CosignNoAppendRedirectPort = V_BOOL(&value);
+		CosignLog( L"Setting <CosignNoAppendRedirectPort> mode to %d", CosignNoAppendRedirectPort );
+	}
+
 	SysFreeString( bstrLoginUrl );
+	SysFreeString( bstrSiteEntry );
+	SysFreeString( bstrSiteEntryURL );
 	SysFreeString( bstrPostErrorRedirectUrl	);
 	SysFreeString( bstrSection );
 	SysFreeString( bstrService );
@@ -723,6 +761,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	SysFreeString( bstrFactor );
 	SysFreeString( bstrIgnoreSuffix );
 	SysFreeString( bstrCompatibilityMode );
+	SysFreeString( bstrCosignNoAppendRedirectPort );
 	SysFreeString( bstrMode );
 	return( retStatus );
 }
@@ -733,6 +772,11 @@ CosignModule::RedirectToLoginServer(
 {
 	DWORD spsSize = 0;
 	PCSTR serverPortSecure = NULL;
+	std::string destination;
+
+	if ( this->siteEntry.length() ) {
+		destination = this->siteEntry;
+	} else {
 	context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
 	serverPortSecure = (PCSTR)context->AllocateRequestMemory( spsSize + 1 );
 	context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
@@ -749,73 +793,76 @@ CosignModule::RedirectToLoginServer(
 	} else {
 		protocol = "http";
 	}
-
-	/// xxx Note: Should also check SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
-	PCSTR	port =  NULL;
-	DWORD	portSize = 0;
-	context->GetServerVariable( "SERVER_PORT", &port, &portSize );
-	port = (PCSTR)context->AllocateRequestMemory( portSize + 1 );
-	if ( port == NULL ) {
-		CosignLog( "Not enough memory to allocate for SERVER_PORT" );
-		/// xxx set an error
-		return( RQ_NOTIFICATION_FINISH_REQUEST );
-	}
-	context->GetServerVariable( "SERVER_PORT", &port, &portSize );
-	CosignTrace1( "SERVER_PORT = %s", port );
-	
-	PCSTR	url = NULL;
-	DWORD	urlSize = 0;
-	context->GetServerVariable( "URL", &url, &urlSize );
-	url = (PCSTR)context->AllocateRequestMemory( urlSize + 1 );
-	if ( url == NULL ) {
-		CosignLog( L"Not enough memory to allocate for URL" );
-		/// xxx set an error
-		return( RQ_NOTIFICATION_FINISH_REQUEST );
-	}
-	context->GetServerVariable( "URL", &url, &urlSize );
-	CosignTrace1( "URL = %s", url );
-
-	PCSTR queryString = NULL;
-	DWORD queryStringSize = 0;
-	context->GetServerVariable( "QUERY_STRING", &queryString, &queryStringSize );
-	if ( queryStringSize > 0 ) {
-		queryString = (PCSTR)context->AllocateRequestMemory( queryStringSize + 1 );
-		if ( queryString == NULL ) {
-			CosignLog( L"Not enough memory to allocate for QUERY_STRING" );
+		/// xxx Note: Should also check SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
+		PCSTR	port =  NULL;
+		DWORD	portSize = 0;
+		context->GetServerVariable( "SERVER_PORT", &port, &portSize );
+		port = (PCSTR)context->AllocateRequestMemory( portSize + 1 );
+		if ( port == NULL ) {
+			CosignLog( "Not enough memory to allocate for SERVER_PORT" );
+			/// xxx set an error
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 		}
+		context->GetServerVariable( "SERVER_PORT", &port, &portSize );
+		CosignTrace1( "SERVER_PORT = %s", port );
+	
+		PCSTR	url = NULL;
+		DWORD	urlSize = 0;
+		context->GetServerVariable( "URL", &url, &urlSize );
+		url = (PCSTR)context->AllocateRequestMemory( urlSize + 1 );
+		if ( url == NULL ) {
+			CosignLog( L"Not enough memory to allocate for URL" );
+			/// xxx set an error
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+		context->GetServerVariable( "URL", &url, &urlSize );
+		CosignTrace1( "URL = %s", url );
+
+		PCSTR queryString = NULL;
+		DWORD queryStringSize = 0;
 		context->GetServerVariable( "QUERY_STRING", &queryString, &queryStringSize );
-		CosignTrace1( "QUERY_STRING", queryString );
-	}
+		if ( queryStringSize > 0 ) {
+			queryString = (PCSTR)context->AllocateRequestMemory( queryStringSize + 1 );
+			if ( queryString == NULL ) {
+				CosignLog( L"Not enough memory to allocate for QUERY_STRING" );
+				return( RQ_NOTIFICATION_FINISH_REQUEST );
+			}
+			context->GetServerVariable( "QUERY_STRING", &queryString, &queryStringSize );
+			CosignTrace1( "QUERY_STRING", queryString );
+		}
 
-	DWORD serverNameSize = 0;
-	PCSTR serverName = NULL;
-	context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
-	serverName = (PCSTR)context->AllocateRequestMemory( serverNameSize + 1 );
-	if ( serverName == NULL ) {
-		CosignLog( L"Not enough memory to allocate for SERVER_NAME" );
-		/// xxx set an error
-		return( RQ_NOTIFICATION_FINISH_REQUEST );
-	}
-	context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
-	CosignTrace1( "SERVER_NAME = %s", serverName );
+		DWORD serverNameSize = 0;
+		PCSTR serverName = NULL;
+		context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
+		serverName = (PCSTR)context->AllocateRequestMemory( serverNameSize + 1 );
+		if ( serverName == NULL ) {
+			CosignLog( L"Not enough memory to allocate for SERVER_NAME" );
+			/// xxx set an error
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+		context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
+		CosignTrace1( "SERVER_NAME = %s", serverName );
 
-	std::string destination = protocol;
-	destination += "://";
-	destination += serverName;
+		std::string destination = protocol;
+		destination += "://";
+		destination += serverName;
 
-	int portNumber = atoi( port );
-	CosignTrace1( "portNumber = %d", portNumber );
-	if (portNumber != 443 && portNumber != 80 ) {
-		destination += ":";
-		destination += port;
-	}
+		int portNumber = atoi( port );
+		CosignTrace1( "portNumber = %d", portNumber );
+		if (portNumber != 443 && portNumber != 80 ) {
+			if ( CosignNoAppendRedirectPort ) {
+			} else {
+				destination += ":";
+				destination += port;
+			}
+		}
 	
 	
-	destination += url;
-	if ( queryStringSize > 0 ) {
-		destination += "?";
-		destination += queryString;
+		destination += url;
+		if ( queryStringSize > 0 ) {
+			destination += "?";
+			destination += queryString;
+		}
 	}
 
 	
@@ -879,7 +926,7 @@ CosignModule::SetCookieAndRedirect(
 	if ( atoi(serverPortSecure) ) {
 		strcpy_s( protocol, sizeof protocol, "https" );
 	} else {
-		strcpy_s( protocol, sizeof protocol, "http" );
+			strcpy_s( protocol, sizeof protocol, "http" );
 	}
 
 	/// xxx Note: Should also check  SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
@@ -1019,12 +1066,30 @@ CosignModule::OnAuthenticateRequest(
 
 	CosignTrace0( L"Done getting config, get/setting cookie" );
 	pcstrCookie = request->GetHeader( "Cookie", &cookieSize );
-	if ( cookieSize == 0 || pcstrCookie == NULL ) {
+	CosignTrace1( L"cookieSize: %d", cookieSize );
+	if ( cookieSize == 0 ) {
 		if ( protectedStatus == cosignAllowPublicAccess ) {
 			goto convertUserData;
 		}
 		return( RedirectToLoginServer( context ) );
 	} else {
+		CosignTrace0(L"Allocating request memory for cookie." );
+		pcstrCookie = (PCSTR)context->AllocateRequestMemory( cookieSize + 1 );
+		if ( pcstrCookie == NULL ) {
+			CosignTrace0( L"Insufficient memory for cookie.");
+			pProvider->SetErrorStatus( HRESULT_FROM_WIN32(ERROR_NOT_ENOUGH_MEMORY) );
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+		
+		CosignTrace0(L"Getting cookie header." );
+		pcstrCookie = request->GetHeader( "Cookie", &cookieSize );
+		if ( pcstrCookie == NULL ) {
+			CosignTrace0( L"Unable to GetHeader for 'Cookie'.");
+			pProvider->SetErrorStatus( HRESULT_FROM_WIN32(ERROR_NOT_ENOUGH_MEMORY) );
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+		CosignTrace1( "pcstrCookie = %s", pcstrCookie );
+		CosignTrace0(L"Copying pcstrCookie to cookie.");
 		cookie = pcstrCookie;
 		if ( cookie.length() == 0 ) {
 			/// xxx Above check is extraneous
@@ -1210,19 +1275,21 @@ CosignModule::NetCheckCookie( std::string& cookie, CosignServiceInfo& csi, BOOL 
 		return( COSIGNERROR );
 	}
 	status = cl->CheckCookie( &cookie, &csi, TRUE );
-	CosignTrace0( L"Cookie, user is logged in." );
+	if ( status == COSIGNLOGGEDIN ) {
+		CosignTrace0( L"Cookie, user is logged in." );
 
-		/*
-		 * fileStatus == COSIGNOK means that the service cookie is not locally cached.
-		 * If this is the case, then assume that proxy cookies and kerberos tickets
-		 * have not yet been retrieved and get them now.
-		 */
-	if ( retrieve ) {
-		if ( fileStatus == COSIGNOK && cl->getProxyCookies() ) {
-			cl->RetrieveProxyCookies( cookie );
-		}	
-		if ( fileStatus == COSIGNOK && cl->getKerberosTickets() ) {
-			cl->RetrieveKerberosTicket();
+			/*
+			 * fileStatus == COSIGNOK means that the service cookie is not locally cached.
+			 * If this is the case, then assume that proxy cookies and kerberos tickets
+			 * have not yet been retrieved and get them now.
+			 */
+		if ( retrieve ) {
+			if ( fileStatus == COSIGNOK && cl->getProxyCookies() ) {
+				cl->RetrieveProxyCookies( cookie );
+			}	
+			if ( fileStatus == COSIGNOK && cl->getKerberosTickets() ) {
+				cl->RetrieveKerberosTicket();
+			}
 		}
 	}
 	if ( !ReleaseMutex( cl->mutex ) ) {
@@ -1458,6 +1525,8 @@ CosignModule::OnExecuteRequestHandler(
 	IN IHttpContext *                       context,
 	IN IHttpEventProvider *                 pProvider
 ) {
+	IHttpResponse							*httpResponse = context->GetResponse();
+
 	// Parse query string
 	PCSTR queryString = GetSerVar( "QUERY_STRING", context );
 	std::string qs = queryString;
@@ -1465,13 +1534,43 @@ CosignModule::OnExecuteRequestHandler(
 
 	/// xxx need better error handling of string parsing functions.
 	// http://www.example.org/cosign/valid/?cosign-www.example=abc123&https://www.example.org/protected/
+	if ( qs.length() == 0 ) {
+		CosignLog( L"cosignmodule: no query string passed to handler." );
+		httpResponse->SetStatus( 403, "Forbidden" );
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+		
 	size_t pos = qs.find_first_of( "=" );
+	if ( pos == qs.npos ) {
+		CosignLog( L"cosignmodule: handler: bad query string: %s", qs.c_str());
+		httpResponse->SetStatus( 400, "Bad request" );
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+
 	std::string serviceName = qs.substr( 0, pos );
+	std::string cosignPrefix = "cosign-";
+	if ( serviceName.compare( 0, cosignPrefix.length(), cosignPrefix ) != 0 ) {
+		CosignLog( L"cosignmodule: handler: bad service name: %s", serviceName.c_str());
+		httpResponse->SetStatus( 400, "Bad request" );
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+
 	qs = qs.substr( pos );
-
-
 	pos = qs.find_first_of( "&" );
+	if ( pos == qs.npos ) {
+		CosignLog( L"cosignmodule: handler: bad query parameters: %s", qs.c_str());
+		httpResponse->SetStatus( 400, "Bad request" );
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+
 	std::string serviceCookie = qs.substr( 1, pos - 1);
+	if ( serviceCookie.length() < 120 ) {
+		// unlikely service cookie value
+		CosignLog( L"cosignmodule: handler: bad cookie length", qs.c_str());
+		httpResponse->SetStatus( 400, "Bad request" );
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
+
 	std::string destination = qs.substr( pos+1 );
 
 	// Get configuration data for validation URL and postErrorRedirectUrl
@@ -1481,10 +1580,9 @@ CosignModule::OnExecuteRequestHandler(
 	// Validate URL
 	CosignLog( "Regex is %s", this->validReference.c_str() );
 	std::tr1::regex pattern( this->validReference.c_str() );
-	if ( !std::tr1::regex_match( destination, pattern ) ) {
+	if ( !std::tr1::regex_match( destination, pattern, std::tr1::regex_constants::match_continuous ) ) {
 		CosignLog( "Destination of %s doesn't match %s", destination.c_str(), this->validReference.c_str() );
-		IHttpResponse*	response = context->GetResponse();
-		response->Redirect( this->validationErrorRedirect.c_str(), TRUE, FALSE );
+		httpResponse->Redirect( this->validationErrorRedirect.c_str(), TRUE, FALSE );
 		return( RQ_NOTIFICATION_FINISH_REQUEST );		
 	}
 
@@ -1494,18 +1592,40 @@ CosignModule::OnExecuteRequestHandler(
 
 	serviceCookie = serviceName + "=" + serviceCookie;
 	COSIGNSTATUS status = NetCheckCookie( serviceCookie, csi, FALSE );
-
-	IHttpResponse* response = context->GetResponse();
+	switch ( status ) {
+    case COSIGNLOGGEDIN:
+		break;
+    case COSIGNLOGGEDOUT:
+        CosignLog( L"Service cookie invalid: user already logged out." );
+        return( RedirectToLoginServer( context ));
+    case COSIGNRETRY:
+        CosignLog( L"Service cookie invalid: all weblogin servers returned RETRY." );
+        httpResponse->SetStatus( 503, "Service unavailable" );
+        return( RQ_NOTIFICATION_FINISH_REQUEST );
+ 
+    default:
+    case COSIGNERROR:
+		CosignLog( L"Service cookie invalid: CHECK returned ERROR." );
+        httpResponse->SetStatus( 500, "Internal server error" );
+        return( RQ_NOTIFICATION_FINISH_REQUEST );
+	}
 
 	std::string cookieHeader = serviceCookie + ";path=/" +
 		(cookiesSecure ? ";secure" : "" ) +
 		(cookiesHttpOnly ?" ;httponly" : "" ) +
 		";";
 
-	if ( response->SetHeader( "Set-Cookie", cookieHeader.c_str(), (USHORT)cookieHeader.length() + 1, TRUE ) != S_OK ) {
+	HRESULT				hr;
+	hr = httpResponse->SetHeader( "Set-Cookie", cookieHeader.c_str(), (USHORT)cookieHeader.length() + 1, TRUE );
+	if ( hr != S_OK ) {
 		CosignLog( L"Error setting cookie header" );
+		pProvider->SetErrorStatus( hr );
+		httpResponse->SetStatus( 500, "Internal server error" );
+
+		return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
 
-	response->Redirect( destination.c_str(), TRUE, FALSE );
+	httpResponse->Redirect( destination.c_str(), TRUE, FALSE );
+
     return( RQ_NOTIFICATION_FINISH_REQUEST );
-}
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
