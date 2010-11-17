@@ -777,22 +777,22 @@ CosignModule::RedirectToLoginServer(
 	if ( this->siteEntry.length() ) {
 		destination = this->siteEntry;
 	} else {
-	context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
-	serverPortSecure = (PCSTR)context->AllocateRequestMemory( spsSize + 1 );
-	context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
-	if ( serverPortSecure == NULL ) {
-		CosignLog( L"Not enough memory to allocate for SERVER_PORT_SECURE" );
-		/// xxx set an error
-		return( RQ_NOTIFICATION_FINISH_REQUEST );
-	}
-	CosignTrace1( "SERVER_PORT_SECURE = %s\n", serverPortSecure );
+		context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
+		serverPortSecure = (PCSTR)context->AllocateRequestMemory( spsSize + 1 );
+		context->GetServerVariable( "SERVER_PORT_SECURE", &serverPortSecure, &spsSize);
+		if ( serverPortSecure == NULL ) {
+			CosignLog( L"Not enough memory to allocate for SERVER_PORT_SECURE" );
+			/// xxx set an error
+			return( RQ_NOTIFICATION_FINISH_REQUEST );
+		}
+		CosignTrace1( "SERVER_PORT_SECURE = %s\n", serverPortSecure );
 
-	std::string	protocol;
-	if ( atoi(serverPortSecure) ) {
-		protocol = "https";
-	} else {
-		protocol = "http";
-	}
+		std::string	protocol;
+		if ( atoi(serverPortSecure) ) {
+			protocol = "https";
+		} else {
+			protocol = "http";
+		}
 		/// xxx Note: Should also check SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
 		PCSTR	port =  NULL;
 		DWORD	portSize = 0;
@@ -843,7 +843,7 @@ CosignModule::RedirectToLoginServer(
 		context->GetServerVariable( "SERVER_NAME", &serverName, &serverNameSize );
 		CosignTrace1( "SERVER_NAME = %s", serverName );
 
-		std::string destination = protocol;
+		destination = protocol;
 		destination += "://";
 		destination += serverName;
 
