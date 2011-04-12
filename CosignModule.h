@@ -18,7 +18,7 @@
 #include "snetpp.h"
 */
 
-static std::string VERSION = "3.1.0 beta 1";
+static std::string VERSION = "3.1.0 beta 2 build 5";
 
 enum PROTECTEDSTATUS { cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
 

@@ -51,19 +51,23 @@ RegisterModule(
 
 	DWORD err  = cmf->Init();
 	if ( err != 0 ) {
+		OutputDebugString( L"[CosignModule] Error Initializing cosignmodule object.");
 		return( HRESULT_FROM_WIN32( err ) );
 	}
 	
-
+	OutputDebugString( L"[CosignModule] Setting request notifications...");
 	hr = info->SetRequestNotifications(
 		cmf,
 		RQ_AUTHENTICATE_REQUEST | RQ_EXECUTE_REQUEST_HANDLER,
 		0 );
 	if ( FAILED(hr) ) {
+		OutputDebugString( L"[CosignModule] Set request notifications failed." );
 		return( hr );
 	}
+	OutputDebugString( L"[CosignModule] Settint priority for request notifications.");
 	info->SetPriorityForRequestNotification( RQ_AUTHENTICATE_REQUEST, PRIORITY_ALIAS_FIRST );
 
+	OutputDebugString( L"[CosignModule] Returning from RegisterModule.");
 	return( hr );
 
 /*	CosignConfigChangeModule*	cccm = new CosignConfigChangeModule;

@@ -10,7 +10,7 @@
 #include "Log.h"
 
 #define MSGCHARCOUNT 2048
-//#define __ENABLE_LOGGING_
+#define __ENABLE_LOGGING_
 
 
 void

@@ -302,10 +302,10 @@ CookieDatabase::StoreCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 
 	} catch ( CosignError ce ) {
 		ce.showError();
-		status = COSIGNERROR;
 		if ( hcf != INVALID_HANDLE_VALUE ) {
 			CloseHandle( hcf );
 		}
+		return( COSIGNERROR );
 	}
 	CloseHandle( hcf );
 	
