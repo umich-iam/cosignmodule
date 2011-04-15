@@ -253,6 +253,13 @@ ConnectionList::RetrieveProxyCookies( std::string& cookie ) {
 	HANDLE	hpf = INVALID_HANDLE_VALUE;
 	DWORD	bytesWritten = 0;
 	DWORD	err;
+   DWORD   success = 0;
+   std::string   in;
+   std::basic_string <char>::size_type   index;
+   std::basic_string <char>::size_type   last;
+   std::string crlf = "\r\n";
+   std::string line;
+   std::string status;
 
 	try { 
 
@@ -286,20 +293,14 @@ ConnectionList::RetrieveProxyCookies( std::string& cookie ) {
 	CosignTrace1( ">> %s", out.c_str() );
 	if ( snet->write( out ) == -1 ) {
 		CosignLog( "Error writing data to socket \"%s\"\n", out.c_str() );
-		return;
+      goto done;
 	}
-	std::string	in;
-	std::basic_string <char>::size_type	index;
-	std::basic_string <char>::size_type	last;
-	std::string crlf = "\r\n";
-	std::string line;
-	std::string status;
 
 	while(1) {
 
 		if ( snet->getLine() == -1 ) {
 			CosignLog( L"Error reading data from socket" );
-			return;
+         goto done;
 		}
 		in = snet->data;
 
@@ -310,16 +311,14 @@ ConnectionList::RetrieveProxyCookies( std::string& cookie ) {
 			CosignTrace1( "Parsed line << %s", line.c_str() );
 			if ( line.length() < 4 ) {
 				CosignTrace1( "Error RETR cookies.  Expected more data: %s", in.c_str() );
-				/// xxx break out of larger loop and close file handle!
-				return;
+            goto done;
 			}
 			status = line.substr( 0, 4 );
 			if ( status[ 0 ] != '2' ||
 				!isdigit( status[ 1 ] ) ||
 				!isdigit( status[ 2 ] ) ) {
 				CosignTrace1( "Error RETR cookies.  Server replied: %s", in.c_str() );
-				/// xxx break out of larger loop and close file handle!
-				return;
+            goto done;
 			}
 			if ( status[ 3 ] == '-' ) {
 				// Write cookie to file
@@ -342,14 +341,21 @@ ConnectionList::RetrieveProxyCookies( std::string& cookie ) {
 		}
 		if ( status.length() >= 4 && status[ 3 ] != '-' ) {
 			CosignTrace0( L"Breaking out of RETR loop" );
+         success = 1;
 			break;
 		}
 	}
+
+done:
 	if ( hpf != INVALID_HANDLE_VALUE ) {
 		if ( !CloseHandle( hpf ) ) {
 			CosignLog( L"CloseHandle( proxyTmpFile ) failed with 0x%x", GetLastError() );
 		}
 	}
+   if ( !success ) {
+      CosignLog( L"Failed to retrieve proxy cookies" );
+      return;
+   }
 	
 	std::wstring	wcookie;
 	StringToWString( cookie, wcookie );
