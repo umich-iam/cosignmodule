@@ -64,7 +64,7 @@ RegisterModule(
 		OutputDebugString( L"[CosignModule] Set request notifications failed." );
 		return( hr );
 	}
-	OutputDebugString( L"[CosignModule] Settint priority for request notifications.");
+	OutputDebugString( L"[CosignModule] Setting priority for request notifications.");
 	info->SetPriorityForRequestNotification( RQ_AUTHENTICATE_REQUEST, PRIORITY_ALIAS_FIRST );
 
 	OutputDebugString( L"[CosignModule] Returning from RegisterModule.");

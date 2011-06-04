@@ -53,7 +53,7 @@ COSIGNSTATUS
 CookieDatabase::CheckCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 
 	HANDLE	hcf = INVALID_HANDLE_VALUE;
-	std::wstring	cookiePath = L"\\\\?\\" + path + cookie;;
+	std::wstring	cookiePath = L"\\\\?\\" + path + cookie;
 	COSIGNSTATUS	status = COSIGNOK;
 
 	CosignLog( L"cookiePath = %s", cookiePath.c_str() );
@@ -110,12 +110,30 @@ CookieDatabase::CheckCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 		CloseHandle( hcf );
 		hcf = INVALID_HANDLE_VALUE;
 
-		std::vector<std::string> words;
-		std::stringstream	parser( data );
-		std::copy( std::istream_iterator<std::string>(parser),
-			std::istream_iterator<std::string>(),
-			std::back_inserter(words) );
-		for ( std::vector<std::string>::iterator iter = words.begin(); iter != words.end(); iter++ ) {
+		// extract lines from cookie file data and put them into a vector for processing.
+		std::string::size_type			start = 0, end;
+		std::vector<std::string>		lines;
+		std::string						line;
+		size_t							found;
+
+		while (( end = data.find( '\n', start )) != data.npos ) {
+			line = data.substr( start, end - start );
+			found = line.find_last_not_of( "\r\n" );
+			if ( found != line.npos ) {
+				line.erase( found + 1 );
+			}
+			
+			lines.push_back( line );
+			start = end + 1;
+		}
+
+		// walk the vector looking for key lines.
+		//
+		// i: initial client IP address
+		// p: user name (i.e., a user principal, in Kerberos terms)
+		// r: realm (i.e., primary authenticating factor, often a Kerberos realm)
+		// f: all authenticated factors, separated by whitespace.
+		for ( std::vector<std::string>::iterator iter = lines.begin(); iter != lines.end(); iter++ ) {
 			switch( (*iter)[ 0 ] ) {
 				case 'i':
 					csi->ipAddr = iter->substr( 1, iter->length() );
@@ -127,14 +145,24 @@ CookieDatabase::CheckCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 					csi->realm = iter->substr( 1, iter->length() );
 					break;
 				case 'f':
-					/// xxx can have multiple factors.  Need to be able to add multiple factors here.
-					csi->strFactors = iter->substr( 1, iter->length() );
+					csi->strFactors = iter->substr( 1, iter->length());
+					// we split the whitespace-separated factor string into a vector below
 					break;
 				default:
-					CosignLog( "Cookie file contained unknown identifer %s", iter->c_str() );
+					CosignLog( L"Cookie file contained unknown identifer %s", iter );
 					break;
 			}
 		}
+
+		std::stringstream	factorSplitter( csi->strFactors );
+		copy( std::istream_iterator<std::string>( factorSplitter ),
+				std::istream_iterator<std::string>(), std::back_inserter( csi->factors ));
+		if ( csi->factors.size() < 1 ) {
+			CosignLog( L"Incorrect number of arguments.  Expected at least 1, received %d",
+						(int)csi->factors.size() );
+			return( COSIGNERROR );
+		}
+
 		status = COSIGNLOGGEDIN;
 	} catch ( CosignError ce ) {
 		ce.showError();

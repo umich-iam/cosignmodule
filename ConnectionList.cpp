@@ -21,9 +21,15 @@
 
 bool
 ConnectionList::getProxyCookies() {
-		CosignLog( L"proxyCookiesDirectory is set to", proxyCookiesDirectory.c_str() );
+		CosignLog( L"proxyCookiesDirectory is set to %s", proxyCookiesDirectory.c_str() );
 		CosignLog( L"proxyCookiesDirector.empty() = %s", (proxyCookiesDirectory.empty() ? L"true" : L"false" ) );
 		if ( proxyCookiesDirectory == L"\\\\?\\" || proxyCookiesDirectory.empty() ) {
+			if ( proxyCookiesDirectory == L"\\\\?\\" ) {
+				CosignLog( L"proxyCookiesDirectory == \\\\?\\" );
+			}
+			if ( proxyCookiesDirectory.empty() ) {
+				CosignLog( L"proxyCookiesDirectory.empty()" );
+			}
 			return( false );
 		}
 		return( true );

@@ -41,7 +41,7 @@ CosignLog( char* format, ... ) {
 #ifdef __ENABLE_LOGGING_
 	va_list	args;
 	char	msg[ MSGCHARCOUNT ];
-	size_t	msgSize = (sizeof(msg)) / (sizeof(wchar_t));
+	size_t	msgSize = (sizeof(msg)) / (sizeof(char));
 	int		result;
 
 	va_start(args, format);

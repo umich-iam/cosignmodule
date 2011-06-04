@@ -60,7 +60,13 @@ RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 		PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
 		NULL,
 		CERT_SYSTEM_STORE_LOCAL_MACHINE, L"MY")) == NULL ) {
-		throw( CosignError( GetLastError(), __LINE__ - 1, __FUNCTION__ ) );
+			DWORD err = GetLastError();
+			if ( err != ERROR_ACCESS_DENIED ) {
+				throw( CosignError( err, __LINE__ - 3, __FUNCTION__ ) );
+			} else {
+				CosignLog( L"Access denied to certificate store." );
+				throw( CosignError( err, __LINE__ - 6, __FUNCTION__ ) );
+			}
 	}
 	while ( (ctx =
 		CertFindCertificateInStore(
@@ -1114,8 +1120,8 @@ CosignModule::OnAuthenticateRequest(
 	ck = serviceName + "=" + serviceCookie;
 	COSIGNSTATUS fileStatus = cdb->CheckCookie( serviceCookie, &csi );
 	if ( fileStatus == COSIGNLOGGEDIN ) {
-		CosignTrace0( L"Cookie DB logged in." );
-		goto convertUserData;
+		CosignTrace0( L"Cookie found in local DB, checking factors..." );
+		goto factorCheck;
 	}
 	// Step two, netcheck cookie
 
@@ -1148,6 +1154,8 @@ CosignModule::OnAuthenticateRequest(
 			CosignLog( L"CheckCookie returned unknown value" );
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 	}
+
+factorCheck:
 	// Strip suffixes, if enabled
 	if ( suffixes.size() > 0 ) {
 		for ( std::vector<std::string>::iterator factor = csi.factors.begin(); factor != csi.factors.end(); factor++ ) {
@@ -1166,9 +1174,10 @@ CosignModule::OnAuthenticateRequest(
 	for ( std::vector<std::string>::iterator iter = factors.begin(); iter != factors.end(); iter++ ) {
 		if ( std::find( csi.factors.begin(), csi.factors.end(), *iter ) == csi.factors.end() ) {
 			///////////////////////////////////////
-			// factor not found
+			// factor not found...
 			if ( protectedStatus == cosignAllowPublicAccess ) {
-				goto convertUserData;
+				// ...but admin says that's OK.
+				break;
 			}
 			return( RedirectToLoginServer( context ) );
 		} 
@@ -1466,6 +1475,7 @@ CosignModuleFactory::Init() {
 
 #ifdef COSIGNTRACE
 		config.dump();
+		CosignLog( L"Done config dumping." );
 #endif
 		SysFreeString( bstrName );
 		SysFreeString( bstrPort );
@@ -1477,27 +1487,33 @@ CosignModuleFactory::Init() {
 		SysFreeString( bstrConfigPath );
 		SysFreeString( bstrWebloginServer );
 		SysFreeString( bstrCertificateCommonName );
+		CosignLog( L"Done freeing bstr's.");
 
 		PCCERT_CONTEXT	certificateContext = NULL;
 		WSADATA			wsadata;
 		int				err;
 
+		CosignLog( L"Attempting to retrieveCertFromStore()" );
 		certificateContext = RetrieveCertFromStore( config.certificateCommonName, certificateStore );
 		if ( certificateContext == NULL ) {
 			CosignLog( L"Could not RetrieveCertFromStore(), certificateContext is NULL" );
 			throw( CosignError( (DWORD)GetLastError(), __LINE__ - 3, __FUNCTION__ ) );
 		}
+		CosignLog( L"Attempting to Startup WSA" );
 		if ( (err = WSAStartup( MAKEWORD(2, 2), &wsadata )) != 0 ) {
 			throw( CosignError( (DWORD)err, __LINE__ - 1, __FUNCTION__ ) );
 		}
+		CosignLog( L"Attempting to Init connection list.");
 		cl.Init(
 			config.webloginServer,
 			config.port,
 			certificateContext,
 			config.kerberosTicketsDirectory,
 			config.proxyCookiesDirectory );
+		CosignLog( L"Attempting to Populate connection list.");
 		cl.Populate();
 		/// xxx HashLength will be a configuration item
+		CosignLog( L"Attempting to Initialize cookie db." );
 		cdb.Init(
 			config.cookieDbDirectory,
 			config.cookieDbExpireTime, 0,
@@ -1505,9 +1521,10 @@ CosignModuleFactory::Init() {
 			config.proxyCookiesDirectory );
 	} catch ( CosignError ce ) {
 		ce.showError();
+		CosignLog( L"Aw, snap! An error initializaing!" );
 		return( ce.getError() );
 	}
-
+	CosignLog( L"Initialization complete. Carrying on..." );
 	return( 0 );
 }
 
@@ -1628,4 +1645,4 @@ CosignModule::OnExecuteRequestHandler(
 	httpResponse->Redirect( destination.c_str(), TRUE, FALSE );
 
     return( RQ_NOTIFICATION_FINISH_REQUEST );
-}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
