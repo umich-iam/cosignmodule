@@ -1,18 +1,47 @@
 
 == Installation instructions for IIS 7 CosignModule ==
 
-== Configure SSL certificates and permissions ==
+1) Configure SSL certificates and https.
+	1.a) Install rewritemodule to redirect http traffic to https.
+	1.b) Install any necessary certificate authority files.
+2) Modify permissions for ssl certs and private keys.
+	2.a) Windows Server 2008 R2 defaultapppool group name.
+3) Create cookie database directory.
 
+) Copy the cosignmodule binaries.
+) Enable the cosignmodule.
+	.a) 32-bit application pools.
+) Modify applicationhost.config with cosign values.
+	.a) Turn off cosign protection for /cosign/valid
+	.b) Modify individual web.config files.
+) Create the cosign validation handler.
+	.a) 32-bit validation handler.
+) Test a cosign-protected page.
+
+(1) Configure SSL and https (1)
+===================================================
 Generate an SSL certificate and have it signed, if needed:
 http://technet.microsoft.com/en-us/library/cc732906(WS.10).aspx
 
+Before proceeding, be sure that your web site is accessible over https. By default, the CosignModule marks its
+cookies as secure. This means if a user logs in and browses to an http part of your web site, it will appear
+to the cosignmodule that the user is not logged in. Making sure this works correctly now, as well as any redirects
+from http to https (see below), will save you headaches later.
 
+(1.a) Install RewriteModule to redirect http traffic to https (1.a)
+To ensure users are sent to the secure, cosign-protected portion of your web site, it may be necessary to
+intercept http requests and redirect them to their https equivalent. The Microsoft Rewrite Module is
+recommended.
+
+It can be downloaded here:
+http://www.iis.net/download/urlrewrite
+
+
+(2) Modify permissions for SSL private keys (2)
+===================================================
 IIS_USRS (or the account or group IIS runs as) needs Full Control and Read permissions in the following Registry key:
 	HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates\MY	
 
-(Note: unlike the IIS 6 version of the cosign filter, there is no need to export or generate a key/cert pair
-as a plain text file.  The IIS7 CosignModule retrieves a certificate from the Windows certificate store.  See
-configuration below.)
 
 Give IIS_IUSRS permission from within certificate manager.
 	Start -> Run

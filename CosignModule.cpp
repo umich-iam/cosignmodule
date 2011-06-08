@@ -1010,7 +1010,7 @@ CosignModule::ParseServiceCookie(
 		return( 1 );
 	}
 	indexCkStart++;
-	if ( indexCkStart > ck.length() ) {
+	if ( indexCkStart >= ck.length() ) {
 		return( 1 );
 	}
 	indexCkStart = ck.find_first_not_of( " \t", indexCkStart );
