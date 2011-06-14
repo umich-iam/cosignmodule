@@ -39,7 +39,8 @@ http://www.iis.net/download/urlrewrite
 
 (2) Modify permissions for SSL private keys (2)
 ===================================================
-IIS_USRS (or the account or group IIS runs as) needs Full Control and Read permissions in the following Registry key:
+IIS_USRS (or the account or group your application pool runs as) needs Full Control and Read permissions in the
+following Registry key:
 	HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\SystemCertificates\MY	
 
 
@@ -58,6 +59,8 @@ Give IIS_IUSRS permission from within certificate manager.
 	Give IIS_IUSRS "Full Control" and "Read" permissions.
 
 
+(3) Create a director for the Cookie Cache (3)
+===================================================
 Create a folder for the service cookie cache:
 	md C:\inetpub\temp\Cosign Cookie DB
 

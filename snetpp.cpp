@@ -182,8 +182,6 @@ Snet::secureRead() {
 	while( 1 ) {
 
 		if ( ss == SEC_E_INCOMPLETE_MESSAGE || readBufferOffset == 0 ) {
-			CosignTrace3( "recv()'ing bytes at offset %u\r\nreadBufferSize = %u\nreadBufferSize - readBufferOffset = %u",
-				readBufferOffset, readBufferSize,	readBufferSize - readBufferOffset );
 			recvSize = recv( s, (char*)(readBuffer + readBufferOffset), readBufferSize - readBufferOffset, 0 );
 	
 			if ( recvSize == SOCKET_ERROR ) {
@@ -194,10 +192,7 @@ Snet::secureRead() {
 				CosignLog( L"Server unexpectedly quit." );
 				return( -1 );
 			}
-//			cout << "Received " << recvSize << " encrypted bytes." << endl;
-			CosignTrace1( L"Received %d encrypted bytes", recvSize );
 			readBufferOffset += recvSize;
-			//readBufferLength += recvSize;
 		}
 
 		buffers[0].BufferType = SECBUFFER_DATA;
@@ -215,7 +210,7 @@ Snet::secureRead() {
 		ss = DecryptMessage( &ctx, &bufferDesc, 0, NULL );
 		/// xxx make a switch?
 		if ( ss == SEC_E_INCOMPLETE_MESSAGE ) {
-			CosignTrace0( L"Need to recv() more data.  Continuing..." );
+			//CosignTrace0( L"Need to recv() more data.  Continuing..." );
 			continue;
 		}
 		if ( ss == SEC_I_CONTEXT_EXPIRED ) {
@@ -228,7 +223,7 @@ Snet::secureRead() {
 			 /// xxx need to throw this ss error so's it can be decoded into human-readble textz0rs
 			CosignLog( L"DecryptMessage() failed: 0x%x", ss );
 			if ( ss == SEC_E_INVALID_TOKEN ) {
-				CosignTrace0( L"Can SEC_E_INVALID_TOKEN be ignored?" );
+				//CosignTrace0( L"Can SEC_E_INVALID_TOKEN be ignored?" );
 				return( 0 );
 			}
 			if ( ss == SEC_E_DECRYPT_FAILURE ) {
@@ -236,7 +231,7 @@ Snet::secureRead() {
 			}
 			return( -1 );
 		}
-		switch ( ss ) {
+		/*switch ( ss ) {
 			case SEC_E_OK:
 				CosignTrace0( L"ss is SEC_E_OK" );
 				break;
@@ -248,20 +243,17 @@ Snet::secureRead() {
 				break;
 			default:
 				break;
-		}
+		}*/
 		extraBuffer = NULL;
 		dataBuffer = NULL;
 		for ( int i = 1; i < 4; i++ ) {
 			if ( dataBuffer == NULL && buffers[i].BufferType == SECBUFFER_DATA ) {
 				dataBuffer = &buffers[i];
-				CosignTrace2( L"Found %u bytes of SECBUFFER_DATA at %d", buffers[i].cbBuffer, i );
 			}
 			if ( buffers[i].BufferType == SECBUFFER_EXTRA ) {
-				CosignTrace2( L"Found %u bytes in SECBUFFER_EXTRA[ %d ]", buffers[i].cbBuffer, i );
 			}
 			if ( extraBuffer == NULL && buffers[i].BufferType == SECBUFFER_EXTRA ) {
 				extraBuffer = &buffers[i];
-				CosignTrace2( L"Putting %u bytes from SECBUFFER_EXTRA[ %d ] into extraBuffer", buffers[i].cbBuffer, i );
 			}
 		}
 		if ( dataBuffer != NULL ) {
@@ -272,12 +264,10 @@ Snet::secureRead() {
 			}
 		}
 		if ( extraBuffer != NULL ) {
-			CosignTrace0( L"Found extra data!" );
 			MoveMemory( readBuffer, extraBuffer->pvBuffer, extraBuffer->cbBuffer );
 			readBufferOffset = extraBuffer->cbBuffer;
 		} else {
 			readBufferOffset = 0;
-			CosignTrace0( L"No extra data found!" );
 			break;
 		}
 
@@ -285,7 +275,6 @@ Snet::secureRead() {
 			CosignLog( L"Need to renegotiate TLS connection.  Not yet implemented." );
 			return( -1 );
 		}
-		CosignTrace0( L"secureRead looping(0)" );
 	}
 	return( 0 );
 }

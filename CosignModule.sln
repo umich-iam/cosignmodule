@@ -6,6 +6,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documentation", "Documentat
 		bin\arcm.bat = bin\arcm.bat
 		COPYRIGHT.txt = COPYRIGHT.txt
 		Cosign_schema.xml = Cosign_schema.xml
+		cosignvars.asp = cosignvars.asp
+		logout.asp = logout.asp
+		logout.aspx = logout.aspx
 		Notes.txt = Notes.txt
 		README.txt = README.txt
 	EndProjectSection
