@@ -312,6 +312,11 @@ CookieDatabase::StoreCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 		throw( CosignError( err, __LINE__ - 2, __FUNCTION__ ) );
 	}
 
+	if ( hcf != INVALID_HANDLE_VALUE ) {
+		CloseHandle( hcf );
+		hcf = INVALID_HANDLE_VALUE;
+	}
+
 	std::wstring	cookiePath = path + cookie;
 	if ( !CopyFileEx( tempFileName, cookiePath.c_str(), NULL, NULL, FALSE, 0 ) ) {
 		err = GetLastError();
@@ -330,9 +335,6 @@ CookieDatabase::StoreCookie( std::wstring& cookie, CosignServiceInfo* csi ) {
 			CloseHandle( hcf );
 		}
 		return( COSIGNERROR );
-	}
-	if ( hcf != INVALID_HANDLE_VALUE ) {
-		CloseHandle( hcf );
 	}
 	
 	return( status );

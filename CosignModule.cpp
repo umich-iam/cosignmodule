@@ -792,9 +792,9 @@ CosignModule::RedirectToLoginServer(
 			return( RQ_NOTIFICATION_FINISH_REQUEST );
 		}
 		CosignTrace1( "SERVER_PORT_SECURE = %s\n", serverPortSecure );
-
+			
 		std::string	protocol;
-		if ( atoi(serverPortSecure) ) {
+		if ( atoi(serverPortSecure) || this->cookiesSecure ) {
 			protocol = "https";
 		} else {
 			protocol = "http";
@@ -862,7 +862,6 @@ CosignModule::RedirectToLoginServer(
 				destination += port;
 			}
 		}
-	
 	
 		destination += url;
 		if ( queryStringSize > 0 ) {
@@ -932,7 +931,7 @@ CosignModule::SetCookieAndRedirect(
 	if ( atoi(serverPortSecure) ) {
 		strcpy_s( protocol, sizeof protocol, "https" );
 	} else {
-			strcpy_s( protocol, sizeof protocol, "http" );
+		strcpy_s( protocol, sizeof protocol, "http" );
 	}
 
 	/// xxx Note: Should also check  SERVER_PORT to see if it is non-standard (443 or 80) and needs to be appended to destination
@@ -1645,4 +1644,4 @@ CosignModule::OnExecuteRequestHandler(
 	httpResponse->Redirect( destination.c_str(), TRUE, FALSE );
 
     return( RQ_NOTIFICATION_FINISH_REQUEST );
-}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+}
