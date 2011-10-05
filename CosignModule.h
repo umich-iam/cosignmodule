@@ -18,7 +18,7 @@
 #include "snetpp.h"
 */
 
-static std::string VERSION = "3.1.0 RC4 build 3";
+static std::string VERSION = "3.1.0 RC4 build 5";
 
 enum PROTECTEDSTATUS { cosignUnprotected, cosignProtected, cosignAllowPublicAccess };
 
@@ -49,7 +49,6 @@ private :
 	CookieDatabase*		cdb;
 	ConnectionList*		cl;
 	
-
 	//Configuration data
 	IAppHostAdminManager* aham;
 	std::string	loginUrl;

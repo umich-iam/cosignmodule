@@ -213,7 +213,7 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		}
 		goodConnections++;
 	}
-	if ( goodConnections == 0 && tryAgain ) {
+	if ( goodConnections < connections.size() && tryAgain ) {
 		/// repopulate and try again
 		CosignTrace0( L"Repopulating and trying again..." );
 		Depopulate();
