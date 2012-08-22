@@ -14,7 +14,7 @@ public:
 	HANDLE		mutex;
 	~ConnectionList();
 	ConnectionList();
-	void Populate();
+	int Populate();
 	COSIGNSTATUS  CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL tryAgain );
 	void RetrieveProxyCookies( std::string& cookie );
 	void RetrieveKerberosTicket();

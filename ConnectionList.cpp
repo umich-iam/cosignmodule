@@ -88,13 +88,13 @@ ConnectionList::Depopulate() {
 	connections.clear();
 }
 
-void
+int
 ConnectionList::Populate() {
 
 	if ( numServers > 0 ) {
 		/// Probably throw some sort of error if already populated?
 		/// Or, assume caller wants to "repopulate" and should destroy all current connections before making new ones?
-		return;
+		return( 0 );
 	}
 
 	if ( certificateContext == NULL ) {
@@ -105,7 +105,9 @@ ConnectionList::Populate() {
 	int			err = GetAddrInfo( server.c_str(), NULL, NULL, &aiList );
 
 	if ( err != 0 ) {
-		throw( CosignError( (DWORD)err, __LINE__ - 2, __FUNCTION__ ) );
+		CosignLog( L"GetAddrInfo %s failed, error code %d", server.c_str(),
+					(DWORD)WSAGetLastError());
+		return( 0 );
 	}
 
 	PADDRINFOW	aiCur =  NULL;
@@ -116,21 +118,40 @@ ConnectionList::Populate() {
 	sin.sin_family = AF_INET;
 	Snet*		snet;
 
-	for ( aiCur = aiList, numServers = 0; aiCur != NULL; aiCur = aiCur->ai_next, numServers++, s = INVALID_SOCKET ) {
-		CosignTrace1( "aiCur->ai_addr: %s\n", inet_ntoa( ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr ) );
-		if ( (s = socket( AF_INET, SOCK_STREAM, NULL )) == INVALID_SOCKET ) {
-			throw( CosignError( (DWORD)WSAGetLastError(), __LINE__ - 1, __FUNCTION__ ) );
+	for ( aiCur = aiList, numServers = 0; aiCur != NULL; aiCur = aiCur->ai_next, s = INVALID_SOCKET ) {
+		if ( aiCur->ai_family != AF_INET ) {
+			CosignLog( L"Skipping non-IPv4 address for %s", server.c_str());
+			continue;
 		}
+		CosignTrace1( "aiCur->ai_addr: %s\n", inet_ntoa( ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr ) );
+
+		if ( (s = socket( AF_INET, SOCK_STREAM, NULL )) == INVALID_SOCKET ) {
+			CosignLog( L"socket creation to %s failed, error code %d",
+				inet_ntoa( ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr ),
+				(DWORD)WSAGetLastError());
+
+			continue;
+		}
+
 		sin.sin_addr.S_un = ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr.S_un;
 		if ( connect( s, (struct sockaddr*)&sin, sizeof(struct sockaddr_in) ) == SOCKET_ERROR ) {
-			throw( CosignError( (DWORD)WSAGetLastError(), __LINE__ - 1, __FUNCTION__ ) );
+			CosignLog( "connect to %s failed, error code %d",
+				inet_ntoa( ((struct sockaddr_in*)(aiCur->ai_addr))->sin_addr ),
+				(DWORD)WSAGetLastError());
+
+			continue;
 		}
 		snet = new Snet();
 		snet->attach( s );
 		snet->getLine();
 		CosignTrace1( "<< %s", snet->data.c_str() );
 		Add( snet );
+
+		// only increment if we actually added a server to the connection list.
+		numServers++;
 	}
+
+	return( numServers );
 }
 
 void
@@ -213,12 +234,16 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		}
 		goodConnections++;
 	}
-	if ( goodConnections < connections.size() && tryAgain ) {
+	if (( connections.size() == 0 || goodConnections < connections.size() ) && tryAgain ) {
 		/// repopulate and try again
 		CosignTrace0( L"Repopulating and trying again..." );
 		Depopulate();
-		Populate();
-		status = CheckCookie( cookie, csi, FALSE );
+		if ( Populate() <= 0 ) {
+			CosignLog( L"Failed to repopulate the connection list" );
+			status = COSIGNRETRY;
+		} else {
+			status = CheckCookie( cookie, csi, FALSE );
+		}
 	}
 
     /*

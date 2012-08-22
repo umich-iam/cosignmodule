@@ -1510,7 +1510,11 @@ CosignModuleFactory::Init() {
 			config.kerberosTicketsDirectory,
 			config.proxyCookiesDirectory );
 		CosignLog( L"Attempting to Populate connection list.");
-		cl.Populate();
+		
+		if ( cl.Populate() <= 0 ) {
+			CosignLog( L"Failed to populate connection list" );
+			throw( CosignError( (DWORD)WSAGetLastError(), __LINE__ - 2, __FUNCTION__ ));
+		}
 		/// xxx HashLength will be a configuration item
 		CosignLog( L"Attempting to Initialize cookie db." );
 		cdb.Init(
@@ -1520,7 +1524,7 @@ CosignModuleFactory::Init() {
 			config.proxyCookiesDirectory );
 	} catch ( CosignError ce ) {
 		ce.showError();
-		CosignLog( L"Aw, snap! An error initializaing!" );
+		CosignLog( L"Aw, snap! An error initializing!" );
 		return( ce.getError() );
 	}
 	CosignLog( L"Initialization complete. Carrying on..." );
