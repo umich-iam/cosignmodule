@@ -537,6 +537,7 @@ CosignModule::GetValidationConfig( IHttpContext* context ) {
 	SysFreeString( bstrValidation );
 	SysFreeString( bstrValidReference );
 	SysFreeString( bstrErrorRedirectUrl );
+	SysFreeString( bstrConfigPath );
 
 	CosignTrace0( L"{*********************GetValidationConfig Done****************}\n" );
 	return( retStatus );
@@ -769,6 +770,7 @@ CosignModule::GetConfig( IHttpContext* context ) {
 	SysFreeString( bstrCompatibilityMode );
 	SysFreeString( bstrCosignNoAppendRedirectPort );
 	SysFreeString( bstrMode );
+	SysFreeString( bstrConfigPath );
 	return( retStatus );
 }
 
@@ -1486,6 +1488,8 @@ CosignModuleFactory::Init() {
 		SysFreeString( bstrConfigPath );
 		SysFreeString( bstrWebloginServer );
 		SysFreeString( bstrCertificateCommonName );
+		SysFreeString( bstrKerberosTickets );
+		SysFreeString( bstrProxyCookies );
 		CosignLog( L"Done freeing bstr's.");
 
 		PCCERT_CONTEXT	certificateContext = NULL;
