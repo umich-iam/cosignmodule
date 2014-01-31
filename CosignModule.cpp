@@ -76,7 +76,7 @@ RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 			CERT_FIND_ANY,
 			NULL,
 			prevCtx )) != NULL ) {
-		if ( CertGetNameString( ctx, CERT_NAME_ATTR_TYPE, 0, szOID_COMMON_NAME, pszNameString, 1024 ) > 1 ) {
+		if ( CertGetNameString( ctx, CERT_NAME_FRIENDLY_DISPLAY_TYPE, 0, NULL, pszNameString, 1024 ) > 1 ) {
 			if ( wcsstr( pszNameString, cn.c_str() ) != NULL ) {
 				CosignLog( L"Found matching certificate!\n" );
 				return( ctx );
