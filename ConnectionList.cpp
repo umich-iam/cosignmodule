@@ -240,9 +240,9 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		Depopulate();
 		if ( Populate() <= 0 ) {
 			CosignLog( L"Failed to repopulate the connection list" );
-			status = COSIGNRETRY;
+			return(COSIGNRETRY);
 		} else {
-			status = CheckCookie( cookie, csi, FALSE );
+			return(CheckCookie(cookie, csi, FALSE));
 		}
 	}
 

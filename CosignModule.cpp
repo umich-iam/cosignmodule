@@ -56,10 +56,8 @@ RetrieveCertFromStore( std::wstring cn, HCERTSTORE	cs ) {
 	PCCERT_CONTEXT	prevCtx = NULL;
 	WCHAR	pszNameString[ 1024 ];
 
-	if ( (cs = CertOpenStore( CERT_STORE_PROV_SYSTEM,
-		PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
-		NULL,
-		CERT_SYSTEM_STORE_LOCAL_MACHINE, L"MY")) == NULL ) {
+	if ( (cs = CertOpenStore( CERT_STORE_PROV_SYSTEM, 0, NULL,
+		CERT_SYSTEM_STORE_LOCAL_MACHINE | CERT_STORE_READONLY_FLAG, L"MY")) == NULL) {
 			DWORD err = GetLastError();
 			if ( err != ERROR_ACCESS_DENIED ) {
 				throw( CosignError( err, __LINE__ - 3, __FUNCTION__ ) );
