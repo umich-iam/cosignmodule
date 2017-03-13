@@ -166,7 +166,7 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 	Snet*	snet;
 	std::string	out;
 	std::string	in;
-	int		goodConnections = 0;
+	unsigned int		goodConnections = 0;
 	COSIGNSTATUS	status = COSIGNRETRY;
 
 	CosignTrace1( L"connections.size() = %d", connections.size() );
