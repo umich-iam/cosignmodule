@@ -170,7 +170,7 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 	COSIGNSTATUS	status = COSIGNRETRY;
 
 	CosignTrace1( L"connections.size() = %d", connections.size() );
-	for( unsigned int i = 0; i < connections.size() && status == COSIGNRETRY; i++ ) {
+	for ( unsigned int i = 0; i < connections.size() && status == COSIGNRETRY; i++ ) {
 		curConnection = snet = connections[ i ];
 		CosignTrace1( L"CheckCookie iter %d", i );
 		if ( !snet->tlsStarted() ) {
@@ -234,6 +234,13 @@ ConnectionList::CheckCookie( std::string* cookie, CosignServiceInfo* csi, BOOL t
 		}
 		goodConnections++;
 	}
+
+
+	/* got an answer we like, no need to retry connections */
+	if ( status == COSIGNLOGGEDIN || status == COSIGNLOGGEDOUT ) {
+	    tryAgain = FALSE;
+	}
+
 	if (( connections.size() == 0 || goodConnections < connections.size() ) && tryAgain ) {
 		/// repopulate and try again
 		CosignTrace0( L"Repopulating and trying again..." );
