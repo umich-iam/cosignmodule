@@ -302,7 +302,6 @@ Snet::startTls( PCCERT_CONTEXT	certCtx, WCHAR*	server ) {
 	screds.dwVersion = SCHANNEL_CRED_VERSION;
 	screds.cCreds = 1;
 	screds.paCred = &certCtx;
-	screds.grbitEnabledProtocols = SP_PROT_TLS1_CLIENT;
 		
 #ifdef _COSIGN_TRACE
 	if ( certCtx == NULL ) {
