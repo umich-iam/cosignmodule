@@ -1638,7 +1638,7 @@ CosignModule::OnExecuteRequestHandler(
 		";";
 
 	HRESULT				hr;
-	hr = httpResponse->SetHeader( "Set-Cookie", cookieHeader.c_str(), (USHORT)cookieHeader.length() + 1, TRUE );
+	hr = httpResponse->SetHeader( "Set-Cookie", cookieHeader.c_str(), (USHORT)cookieHeader.length(), TRUE );
 	if ( hr != S_OK ) {
 		CosignLog( L"Error setting cookie header" );
 		pProvider->SetErrorStatus( hr );
